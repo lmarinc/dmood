@@ -1512,6 +1512,146 @@ El sistema nunca debe enviar notificaciones si el usuario no ha activado la func
 
 Fin del Bloque X
 
+BLOQUE Y — Funciones Pro (Exportación y Seguridad Visual)
+1. Exportación de Resumen en PDF (Modo Pro)
+
+La versión Pro de D-Mood permitirá exportar el resumen semanal o mensual a un archivo PDF que el usuario podrá guardar y compartir.
+La intención es proporcionar una fotografía clara y portable de sus patrones de decisiones y emociones.
+
+1.1 Generación del PDF
+
+El PDF incluirá:
+
+Intervalo temporal del resumen (fechas de inicio y fin).
+
+Emoción dominante y emociones secundarias más frecuentes.
+
+Categorías más presentes con su peso relativo (porcentajes aproximados).
+
+Tono predominante de las decisiones (calmadas vs impulsivas).
+
+Gráfico simple (por ejemplo barras o distribución) que resuma:
+
+emociones,
+
+categorías,
+
+tono.
+
+Listado de hallazgos (“Lo más destacable”) generados para esa semana/mes.
+
+Una breve conclusión/resumen en texto.
+
+Identidad visual mínima de D-Mood (nombre, logotipo básico o marca textual).
+
+La generación del PDF se hará completamente en local, sin enviar datos a servidores externos.
+
+Tecnológicamente, se utilizarán APIs de Android como:
+
+PdfDocument
+o
+
+El sistema de impresión/creación de PDF nativo de Android
+
+según convenga en la implementación.
+
+1.2 Ubicación de guardado
+
+Los archivos PDF se guardarán en la carpeta de descargas del dispositivo, dentro de una subcarpeta lógica de la app cuando sea posible.
+
+Ruta lógica esperada:
+
+Directorio base: Downloads / Descargas
+
+Subcarpeta sugerida: D-Mood (si el sistema lo permite)
+
+Nombre de archivo, por ejemplo:
+
+dmood-resumen-semanal-YYYY-MM-DD.pdf
+dmood-resumen-mensual-YYYY-MM.pdf
+
+
+El objetivo es que el usuario pueda encontrar el archivo rápidamente en la aplicación de Descargas de su dispositivo.
+
+1.3 Compartición
+
+D-Mood no incluirá un visor propio de PDF.
+Una vez generado el archivo, la app:
+
+Mostrará una confirmación tipo: “Resumen exportado en PDF en Descargas”.
+
+Ofrecerá un botón “Compartir”, que utilizará un Intent.ACTION_SEND con FileProvider para que el usuario elija:
+
+Cliente de correo
+
+App de mensajería
+
+Aplicación de almacenamiento en la nube
+
+Cualquier visor o gestor de archivos compatible con PDF
+
+La visualización del PDF se delega completamente a las aplicaciones instaladas en el dispositivo.
+
+2. Protección visual del resumen (FLAG_SECURE)
+
+Como los resúmenes contienen información emocional consolidada y potencialmente sensible, D-Mood Pro protegerá las pantallas de resumen para evitar capturas o grabaciones de pantalla.
+
+2.1 Pantallas protegidas
+
+Se activará protección visual en:
+
+Pantalla de resumen semanal.
+
+Pantalla de resumen mensual (cuando exista).
+
+Cualquier pantalla que muestre el contenido final a exportar.
+
+2.2 Tecnología utilizada
+
+Se utilizará la flag:
+
+WindowManager.LayoutParams.FLAG_SECURE
+
+
+Esto evita:
+
+Capturas de pantalla.
+
+Grabaciones de pantalla.
+
+Mirroring visual por apps de duplicación no autorizadas.
+
+Esta protección se activará únicamente en las pantallas de resumen, no en el resto de la app.
+
+2.3 Pantallas no protegidas
+
+Para preservar una experiencia natural, NO se activará FLAG_SECURE en:
+
+Home / pantalla de “Hoy”.
+
+Registro de decisiones (Stepper).
+
+Ajustes.
+
+Guía / FAQ.
+
+Onboarding.
+
+Solo se considera “contenido especialmente sensible” el resumen global (semanal/mensual), por su carácter consolidado y potencialmente más identificable.
+
+3. Exclusividad Pro
+
+Estas capacidades forman parte de las funcionalidades del modo Pro:
+
+Exportación del resumen a PDF.
+
+Acceso al resumen mensual.
+
+Protección anti-captura en pantallas de resumen.
+
+La versión gratuita puede seguir mostrando el resumen semanal en pantalla, pero sin exportación a PDF y, si se decide así, sin ciertas partes avanzadas del análisis.
+
+Fin del Bloque Y
 
 FIN DEL REQUISITO:
 Genera el código de la app D-Mood siguiendo todo lo anterior con el máximo rigor posible, sin omitir ninguna de las reglas clave descritas.
