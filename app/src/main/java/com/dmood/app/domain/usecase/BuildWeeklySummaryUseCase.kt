@@ -8,6 +8,9 @@ import java.time.ZoneId
 import java.time.format.TextStyle
 import java.util.Locale
 
+/**
+ * Resumen cuantitativo de una semana de decisiones y estados emocionales.
+ */
 data class WeeklySummary(
     val startDate: Long,
     val endDate: Long,
@@ -19,15 +22,21 @@ data class WeeklySummary(
     val categoryDistribution: Map<CategoryType, Int>
 )
 
+/**
+ * Caso de uso para construir el resumen semanal a partir de las decisiones
+ * registradas en un intervalo de fechas.
+ */
 class BuildWeeklySummaryUseCase(
     private val calculateDailyMoodUseCase: CalculateDailyMoodUseCase
 ) {
+
     operator fun invoke(
         decisions: List<Decision>,
         startDate: Long,
         endDate: Long
     ): WeeklySummary {
         val totalDecisions = decisions.size
+
         val calmCount = decisions.count { it.tone == DecisionTone.CALMADA }
         val impulsiveCount = decisions.count { it.tone == DecisionTone.IMPULSIVA }
         val neutralCount = decisions.count { it.tone == DecisionTone.NEUTRA }
@@ -61,10 +70,13 @@ class BuildWeeklySummaryUseCase(
 
         val zoneId = ZoneId.systemDefault()
         val groupedByDate = decisions.groupBy { decision ->
-            Instant.ofEpochMilli(decision.timestamp).atZone(zoneId).toLocalDate()
+            Instant.ofEpochMilli(decision.timestamp)
+                .atZone(zoneId)
+                .toLocalDate()
         }
 
         val result = linkedMapOf<String, DailyMood>()
+
         groupedByDate.entries
             .sortedBy { it.key }
             .forEach { (date, dayDecisions) ->

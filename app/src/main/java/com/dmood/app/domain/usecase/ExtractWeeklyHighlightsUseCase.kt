@@ -2,6 +2,9 @@ package com.dmood.app.domain.usecase
 
 import com.dmood.app.domain.model.CategoryType
 
+/**
+ * Hallazgos cualitativos destacados sobre una semana.
+ */
 data class WeeklyHighlight(
     val strongestPositiveDay: String?,
     val strongestNegativeDay: String?,
@@ -9,7 +12,11 @@ data class WeeklyHighlight(
     val emotionalTrend: String
 )
 
+/**
+ * Caso de uso para extraer los puntos más relevantes de un WeeklySummary.
+ */
 class ExtractWeeklyHighlightsUseCase {
+
     operator fun invoke(summary: WeeklySummary): WeeklyHighlight {
         val strongestPositiveDay = findDayWithMood(summary, DailyMood.POSITIVO)
         val strongestNegativeDay = findDayWithMood(summary, DailyMood.NEGATIVO)
@@ -28,6 +35,10 @@ class ExtractWeeklyHighlightsUseCase {
         )
     }
 
+    /**
+     * Devuelve el primer día que presenta el estado de ánimo indicado.
+     * (Simplificación: día representativo, no el “más fuerte” a nivel cuantitativo.)
+     */
     private fun findDayWithMood(summary: WeeklySummary, mood: DailyMood): String? {
         return summary.dailyMoods.entries.firstOrNull { it.value == mood }?.key
     }
