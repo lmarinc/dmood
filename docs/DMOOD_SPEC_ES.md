@@ -1389,6 +1389,130 @@ devModeEnabled = true y mockProEnabled = true.
 Cambiar de un estado a otro sin reinstalar la app ni depender de Google Play.
 
 
+
+BLOQUE X — Sistema de Notificaciones y Permisos
+10.1. Objetivo
+
+El sistema de notificaciones permite a D-Mood mantener al usuario informado y acompañado en su proceso de registro emocional y toma de decisiones.
+Las notificaciones tienen dos funciones principales:
+
+Recordatorio diario cuando el usuario no ha registrado ninguna decisión.
+
+Aviso semanal indicando que su resumen está listo (solo en modo Pro).
+
+El diseño busca ser respetuoso, minimalista y no intrusivo.
+
+10.2. Permiso requerido
+
+En Android 13+ es necesario solicitar:
+
+android.permission.POST_NOTIFICATIONS
+
+
+En versiones anteriores, la app mostrará notificaciones sin necesidad de pedir permiso.
+
+El permiso únicamente se solicitará cuando el usuario active por primera vez alguna función que requiera enviar notificaciones.
+
+10.3. Recordatorio diario
+
+Condición activación:
+El usuario habilita el interruptor “Recordatorio diario si no hay decisiones”.
+
+Comportamiento:
+
+Cada día, a una hora predefinida (ej. 21:00), la app comprueba si se ha registrado alguna decisión.
+
+Si no existe ninguna:
+
+Se envía una notificación suave:
+“Aún no has registrado ninguna decisión hoy. ¿Quieres añadir una ahora?”
+
+La característica puede desactivarse en Ajustes en cualquier momento.
+
+Permiso:
+
+Si el usuario activa la opción y el permiso está pendiente, la app mostrará un diálogo explicativo y solicitará el permiso.
+
+Si el usuario lo deniega, la opción se desactivará automáticamente.
+
+10.4. Recordatorio semanal del resumen (Modo Pro)
+
+Condición activación:
+El usuario activa la opción “Recordatorio semanal del resumen”.
+
+Comportamiento:
+
+Al finalizar la semana según el día configurado por el usuario como inicio, el sistema genera el resumen semanal.
+
+La app enviará una notificación tipo:
+“Tu resumen semanal está listo. Tócalo para revisarlo.”
+
+Permiso:
+
+Si este modo está activado y el permiso no está concedido, la app solicitará el permiso.
+
+Si el usuario lo deniega, el interruptor se desactivará.
+
+10.5. Integración en Ajustes
+
+El apartado Ajustes incluirá una sección llamada Recordatorios con:
+
+Switch:
+“Recordatorio diario si no hay decisiones”
+
+Switch:
+“Recordatorio semanal del resumen (Pro)”
+
+Botón opcional:
+“Probar notificación”
+para validar manualmente el permiso y el canal de notificaciones.
+
+La interfaz debe reflejar claramente si el permiso está concedido, denegado o pendiente.
+
+10.6. Implementación técnica
+   10.6.1 Permisos
+
+Se usarán los contratos modernos de permisos:
+ActivityResultContracts.RequestPermission.
+
+10.6.2 Persistencia
+
+DataStore almacenará:
+
+si los recordatorios están activos
+
+si el permiso ha sido concedido o denegado previamente
+
+10.6.3 Programación de recordatorios
+
+Versión MVP:
+
+Uso de WorkManager para tareas diarias/semanales simples.
+
+En caso de simplificación:
+permitir ejecutar notificaciones manualmente para validar comportamiento.
+
+10.6.4 Canal de notificación
+
+Crear un canal estable llamado:
+
+dmood_reminders
+
+
+para Android 8+.
+
+10.7. Experiencia de usuario
+
+Las notificaciones deben ser breves, neutrales y no culpabilizadoras.
+
+El usuario debe mantener control total:
+activar, desactivar o revocar permisos en cualquier momento.
+
+El sistema nunca debe enviar notificaciones si el usuario no ha activado la función voluntariamente.
+
+Fin del Bloque X
+
+
 FIN DEL REQUISITO:
 Genera el código de la app D-Mood siguiendo todo lo anterior con el máximo rigor posible, sin omitir ninguna de las reglas clave descritas.
 
