@@ -1,4 +1,5 @@
-package com.dmood.domain.model
+package com.dmood.app.domain.model
+
 
 import androidx.compose.ui.graphics.Color
 
