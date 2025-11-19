@@ -12,6 +12,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.dmood.app.di.DmoodServiceLocator
 import com.dmood.app.ui.components.BottomNavBar
 import com.dmood.app.ui.navigation.AppNavHost
 import com.dmood.app.ui.navigation.Screen
@@ -20,6 +21,7 @@ import com.dmood.app.ui.theme.DmoodTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        DmoodServiceLocator.init(applicationContext)
         enableEdgeToEdge()
         setContent {
             DmoodTheme {
