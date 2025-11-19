@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModelProvider
 import com.dmood.app.di.DmoodServiceLocator
 import com.dmood.app.ui.screen.decision.DecisionEditorViewModel
 import com.dmood.app.ui.screen.home.HomeViewModel
+import com.dmood.app.ui.screen.onboarding.OnboardingViewModel
+import com.dmood.app.ui.screen.settings.SettingsViewModel
 import com.dmood.app.ui.screen.summary.WeeklySummaryViewModel
 
 object DmoodViewModelFactory : ViewModelProvider.Factory {
@@ -16,7 +18,8 @@ object DmoodViewModelFactory : ViewModelProvider.Factory {
         return when {
             modelClass.isAssignableFrom(HomeViewModel::class.java) -> {
                 HomeViewModel(
-                    decisionRepository = locator.decisionRepository
+                    decisionRepository = locator.decisionRepository,
+                    userPreferencesRepository = locator.userPreferencesRepository
                 ) as T
             }
 
@@ -32,7 +35,20 @@ object DmoodViewModelFactory : ViewModelProvider.Factory {
                 WeeklySummaryViewModel(
                     decisionRepository = locator.decisionRepository,
                     buildWeeklySummaryUseCase = locator.buildWeeklySummaryUseCase,
-                    extractWeeklyHighlightsUseCase = locator.extractWeeklyHighlightsUseCase
+                    extractWeeklyHighlightsUseCase = locator.extractWeeklyHighlightsUseCase,
+                    userPreferencesRepository = locator.userPreferencesRepository
+                ) as T
+            }
+
+            modelClass.isAssignableFrom(OnboardingViewModel::class.java) -> {
+                OnboardingViewModel(
+                    userPreferencesRepository = locator.userPreferencesRepository
+                ) as T
+            }
+
+            modelClass.isAssignableFrom(SettingsViewModel::class.java) -> {
+                SettingsViewModel(
+                    userPreferencesRepository = locator.userPreferencesRepository
                 ) as T
             }
 

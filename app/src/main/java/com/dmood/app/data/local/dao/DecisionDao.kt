@@ -24,4 +24,7 @@ interface DecisionDao {
 
     @Query("SELECT * FROM decisions WHERE date(timestamp / 1000, 'unixepoch') = date(:day / 1000, 'unixepoch')")
     suspend fun getByDay(day: Long): List<DecisionEntity>
+
+    @Query("SELECT * FROM decisions WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Long): DecisionEntity?
 }

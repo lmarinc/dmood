@@ -32,4 +32,8 @@ class DecisionRepositoryImpl(
     override suspend fun getByRange(start: Long, end: Long): List<Decision> {
         return dao.getByRange(start, end).map { DecisionMapper.toDomain(it) }
     }
+
+    override suspend fun getById(id: Long): Decision? {
+        return dao.getById(id)?.let { DecisionMapper.toDomain(it) }
+    }
 }

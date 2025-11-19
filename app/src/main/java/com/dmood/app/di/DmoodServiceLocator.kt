@@ -3,6 +3,7 @@ package com.dmood.app.di
 import android.content.Context
 import androidx.room.Room
 import com.dmood.app.data.local.database.AppDatabase
+import com.dmood.app.data.preferences.UserPreferencesRepository
 import com.dmood.app.data.repository.DecisionRepositoryImpl
 import com.dmood.app.domain.repository.DecisionRepository
 import com.dmood.app.domain.usecase.BuildWeeklySummaryUseCase
@@ -27,6 +28,10 @@ object DmoodServiceLocator {
 
     val decisionRepository: DecisionRepository by lazy {
         DecisionRepositoryImpl(decisionDao)
+    }
+
+    val userPreferencesRepository: UserPreferencesRepository by lazy {
+        UserPreferencesRepository(appContext)
     }
 
     val validateDecisionUseCase: ValidateDecisionUseCase by lazy {

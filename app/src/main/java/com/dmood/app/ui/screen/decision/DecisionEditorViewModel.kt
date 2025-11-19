@@ -15,13 +15,17 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 data class DecisionEditorUiState(
+    val id: Long = 0L,
     val text: String = "",
     val selectedEmotions: Set<EmotionType> = emptySet(),
     val intensity: Int = 3,
     val category: CategoryType? = null,
+    val timestamp: Long? = null,
     val isSaving: Boolean = false,
     val validationError: String? = null,
-    val savedSuccessfully: Boolean = false
+    val savedSuccessfully: Boolean = false,
+    val isEditing: Boolean = false,
+    val currentStep: Int = 1
 )
 
 class DecisionEditorViewModel(
@@ -33,6 +37,25 @@ class DecisionEditorViewModel(
     private val _uiState = MutableStateFlow(DecisionEditorUiState())
     val uiState: StateFlow<DecisionEditorUiState> = _uiState
 
+    fun loadDecision(id: Long) {
+        if (id <= 0L) return
+        viewModelScope.launch {
+            val decision = decisionRepository.getById(id) ?: return@launch
+            _uiState.value = _uiState.value.copy(
+                id = decision.id,
+                text = decision.text,
+                selectedEmotions = decision.emotions.toSet(),
+                intensity = decision.intensity,
+                category = decision.category,
+                timestamp = decision.timestamp,
+                isEditing = true,
+                validationError = null,
+                savedSuccessfully = false,
+                currentStep = 1
+            )
+        }
+    }
+
     fun onTextChange(newText: String) {
         _uiState.value = _uiState.value.copy(
             text = newText,
@@ -43,23 +66,16 @@ class DecisionEditorViewModel(
 
     fun onToggleEmotion(emotion: EmotionType) {
         val current = _uiState.value.selectedEmotions
-
-        val newSet: Set<EmotionType> = if (current.contains(emotion)) {
-            // Si ya estaba seleccionada, la quitamos
+        val newSet = if (current.contains(emotion)) {
             current - emotion
         } else {
             if (emotion == EmotionType.NORMAL) {
-                // Si el usuario elige NORMAL, va siempre sola
                 setOf(EmotionType.NORMAL)
             } else {
-                // Emoción distinta de NORMAL
                 val withoutNormal = current - EmotionType.NORMAL
-
                 if (withoutNormal.size >= 2) {
-                    // Ya hay 2 emociones seleccionadas → ignoramos el nuevo click
                     withoutNormal
                 } else {
-                    // Aún hay hueco (0 o 1 emoción) → añadimos la nueva
                     withoutNormal + emotion
                 }
             }
@@ -88,12 +104,38 @@ class DecisionEditorViewModel(
         )
     }
 
+    fun goToNextStep() {
+        val state = _uiState.value
+        if (state.currentStep == 1 && state.text.isBlank()) {
+            _uiState.value = state.copy(
+                validationError = "Necesitamos una descripción para continuar"
+            )
+            return
+        }
+        if (state.currentStep < 3) {
+            _uiState.value = state.copy(
+                currentStep = state.currentStep + 1,
+                validationError = null
+            )
+        }
+    }
+
+    fun goToPreviousStep() {
+        val state = _uiState.value
+        if (state.currentStep > 1) {
+            _uiState.value = state.copy(
+                currentStep = state.currentStep - 1,
+                validationError = null
+            )
+        }
+    }
+
     fun saveDecision() {
         val state = _uiState.value
-
+        val timestamp = state.timestamp ?: System.currentTimeMillis()
         val decision = Decision(
-            id = 0L,
-            timestamp = System.currentTimeMillis(),
+            id = state.id,
+            timestamp = timestamp,
             text = state.text,
             emotions = state.selectedEmotions.toList(),
             intensity = state.intensity,
@@ -117,11 +159,14 @@ class DecisionEditorViewModel(
         viewModelScope.launch {
             try {
                 _uiState.value = state.copy(isSaving = true, validationError = null)
-
                 val tone = calculateDecisionToneUseCase(decision)
                 val finalDecision = decision.copy(tone = tone)
 
-                decisionRepository.add(finalDecision)
+                if (state.isEditing && state.id > 0L) {
+                    decisionRepository.update(finalDecision)
+                } else {
+                    decisionRepository.add(finalDecision)
+                }
 
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
@@ -132,7 +177,36 @@ class DecisionEditorViewModel(
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
                     savedSuccessfully = false,
-                    validationError = "No se pudo guardar la decisión."
+                    validationError = "No se pudo guardar la decisión"
+                )
+            }
+        }
+    }
+
+    fun deleteCurrentDecision() {
+        val state = _uiState.value
+        if (!state.isEditing || state.id <= 0L) return
+
+        viewModelScope.launch {
+            try {
+                _uiState.value = state.copy(isSaving = true, validationError = null)
+                val existing = decisionRepository.getById(state.id)
+                    ?: run {
+                        _uiState.value = _uiState.value.copy(
+                            isSaving = false,
+                            validationError = "No encontramos esta decisión"
+                        )
+                        return@launch
+                    }
+                decisionRepository.delete(existing)
+                _uiState.value = _uiState.value.copy(
+                    isSaving = false,
+                    savedSuccessfully = true
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isSaving = false,
+                    validationError = "No se pudo borrar la decisión"
                 )
             }
         }

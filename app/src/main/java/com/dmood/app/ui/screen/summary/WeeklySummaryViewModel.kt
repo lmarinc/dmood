@@ -2,6 +2,7 @@ package com.dmood.app.ui.screen.summary
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dmood.app.data.preferences.UserPreferencesRepository
 import com.dmood.app.domain.repository.DecisionRepository
 import com.dmood.app.domain.usecase.BuildWeeklySummaryUseCase
 import com.dmood.app.domain.usecase.ExtractWeeklyHighlightsUseCase
@@ -15,17 +16,31 @@ data class WeeklySummaryUiState(
     val isLoading: Boolean = false,
     val summary: WeeklySummary? = null,
     val highlight: WeeklyHighlight? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val userName: String? = null
 )
 
 class WeeklySummaryViewModel(
     private val decisionRepository: DecisionRepository,
     private val buildWeeklySummaryUseCase: BuildWeeklySummaryUseCase,
-    private val extractWeeklyHighlightsUseCase: ExtractWeeklyHighlightsUseCase
+    private val extractWeeklyHighlightsUseCase: ExtractWeeklyHighlightsUseCase,
+    private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(WeeklySummaryUiState())
     val uiState: StateFlow<WeeklySummaryUiState> = _uiState
+
+    init {
+        observeUserName()
+    }
+
+    private fun observeUserName() {
+        viewModelScope.launch {
+            userPreferencesRepository.userNameFlow.collect { name ->
+                _uiState.value = _uiState.value.copy(userName = name)
+            }
+        }
+    }
 
     fun loadWeeklySummary() {
         viewModelScope.launch {

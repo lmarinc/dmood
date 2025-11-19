@@ -3,6 +3,7 @@ package com.dmood.app.ui.components
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -33,6 +34,13 @@ fun BottomNavBar(
             onClick = { onNavigate(Screen.Settings.route) },
             icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
             label = { Text("Ajustes") }
+        )
+
+        NavigationBarItem(
+            selected = currentRoute == Screen.Faq.route,
+            onClick = { onNavigate(Screen.Faq.route) },
+            icon = { Icon(Icons.Filled.Info, contentDescription = null) },
+            label = { Text("Guía") }
         )
     }
 }
