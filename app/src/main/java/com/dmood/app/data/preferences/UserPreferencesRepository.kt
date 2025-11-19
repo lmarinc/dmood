@@ -1,6 +1,7 @@
 package com.dmood.app.data.preferences
 
 import android.content.Context
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -40,7 +41,7 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun getUserName(): String? = userNameFlow.first()
 
     suspend fun setUserName(name: String) {
-        dataStore.edit { prefs: Preferences ->
+        dataStore.edit { prefs: MutablePreferences ->
             prefs[USER_NAME_KEY] = name
         }
     }

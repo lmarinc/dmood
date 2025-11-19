@@ -1,8 +1,8 @@
 package com.dmood.app.data.local.dao
 
 import androidx.room.*
-import androidx.room.Insert
 import com.dmood.app.data.local.entity.DecisionEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface DecisionDao {
@@ -16,14 +16,37 @@ interface DecisionDao {
     @Delete
     suspend fun delete(decision: DecisionEntity)
 
-    @Query("SELECT * FROM decisions ORDER BY timestamp DESC")
-    suspend fun getAll(): List<DecisionEntity>
+    /**
+     * Flujo reactivo del día (Home)
+     */
+    @Query(
+        """
+        SELECT * FROM decisions
+        WHERE timestamp >= :startMillis
+          AND timestamp < :endMillis
+        ORDER BY timestamp ASC
+        """
+    )
+    fun getDecisionsForDay(
+        startMillis: Long,
+        endMillis: Long
+    ): Flow<List<DecisionEntity>>
 
-    @Query("SELECT * FROM decisions WHERE timestamp BETWEEN :start AND :end ORDER BY timestamp ASC")
-    suspend fun getByRange(start: Long, end: Long): List<DecisionEntity>
-
-    @Query("SELECT * FROM decisions WHERE date(timestamp / 1000, 'unixepoch') = date(:day / 1000, 'unixepoch')")
-    suspend fun getByDay(day: Long): List<DecisionEntity>
+    /**
+     * Resumen semanal (One-shot)
+     */
+    @Query(
+        """
+        SELECT * FROM decisions
+        WHERE timestamp >= :startMillis
+          AND timestamp < :endMillis
+        ORDER BY timestamp ASC
+        """
+    )
+    suspend fun getDecisionsForRange(
+        startMillis: Long,
+        endMillis: Long
+    ): List<DecisionEntity>
 
     @Query("SELECT * FROM decisions WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): DecisionEntity?

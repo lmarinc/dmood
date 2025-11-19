@@ -1,6 +1,7 @@
 package com.dmood.app.domain.repository
 
 import com.dmood.app.domain.model.Decision
+import kotlinx.coroutines.flow.Flow
 
 interface DecisionRepository {
     suspend fun add(decision: Decision): Long
@@ -10,4 +11,5 @@ interface DecisionRepository {
     suspend fun getByDay(timestamp: Long): List<Decision>
     suspend fun getByRange(start: Long, end: Long): List<Decision>
     suspend fun getById(id: Long): Decision?
+    fun getDecisionsForDayFlow(start: Long, end: Long): Flow<List<Decision>>
 }

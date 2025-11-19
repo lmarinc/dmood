@@ -1,3 +1,4 @@
+
 package com.dmood.app.ui.screen.summary
 
 import androidx.compose.foundation.background
@@ -114,43 +115,49 @@ fun WeeklySummaryScreen(
                     )
                 }
 
-                uiState.summary != null && uiState.highlight != null -> {
-                    val summary = uiState.summary
-                    val highlight = uiState.highlight
-                    LazyRow(
-                        contentPadding = PaddingValues(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        item {
-                            SummaryCard(
-                                title = "Tono de la semana",
-                                description = highlight.emotionalTrend,
-                                accentColors = listOf(
-                                    MaterialTheme.colorScheme.primary,
-                                    MaterialTheme.colorScheme.secondary
-                                )
-                            )
-                        }
-                        item {
-                            ToneDistributionCard(
-                                calm = summary.calmPercentage,
-                                impulsive = summary.impulsivePercentage
-                            )
-                        }
-                        item {
-                            HighlightDaysCard(highlight = highlight)
-                        }
-                        items(buildCategorySlides(summary.categoryDistribution, summary.totalDecisions)) { content ->
-                            content()
-                        }
-                    }
-                }
-
                 else -> {
-                    Text(
-                        text = "Todavía no hay suficientes decisiones esta semana para generar un resumen. Registra tus decisiones durante varios días y vuelve aquí.",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    // Evitar problemas de smart-cast usando let anidado sobre las propiedades nullable
+                    uiState.summary?.let { summary ->
+                        uiState.highlight?.let { highlight ->
+                            LazyRow(
+                                contentPadding = PaddingValues(vertical = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                item {
+                                    SummaryCard(
+                                        title = "Tono de la semana",
+                                        description = highlight.emotionalTrend,
+                                        accentColors = listOf(
+                                            MaterialTheme.colorScheme.primary,
+                                            MaterialTheme.colorScheme.secondary
+                                        )
+                                    )
+                                }
+                                item {
+                                    ToneDistributionCard(
+                                        calm = summary.calmPercentage,
+                                        impulsive = summary.impulsivePercentage
+                                    )
+                                }
+                                item {
+                                    HighlightDaysCard(highlight = highlight)
+                                }
+                                items(buildCategorySlides(summary.categoryDistribution, summary.totalDecisions)) { content ->
+                                    content()
+                                }
+                            }
+                        } ?: run {
+                            Text(
+                                text = "Todavía no hay suficientes decisiones esta semana para generar un resumen. Registra tus decisiones durante varios días y vuelve aquí.",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    } ?: run {
+                        Text(
+                            text = "Todavía no hay suficientes decisiones esta semana para generar un resumen. Registra tus decisiones durante varios días y vuelve aquí.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                 }
             }
         }

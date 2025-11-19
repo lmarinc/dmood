@@ -1,3 +1,4 @@
+// kotlin
 package com.dmood.app.ui.screen.decision
 
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -58,6 +59,7 @@ import com.dmood.app.domain.model.CategoryType
 import com.dmood.app.domain.model.EmotionType
 import com.dmood.app.ui.DmoodViewModelFactory
 import kotlin.math.roundToInt
+import kotlin.text.get
 
 private val categoryColors = mapOf(
     CategoryType.TRABAJO_ESTUDIOS to Color(0xFFDDEBFF),
@@ -75,6 +77,7 @@ private val categoryColors = mapOf(
 fun DecisionEditorScreen(
     decisionId: Long = 0L,
     onClose: () -> Unit,
+    onSaved: () -> Unit = {}, // callback añadido
     modifier: Modifier = Modifier,
     viewModel: DecisionEditorViewModel = viewModel(factory = DmoodViewModelFactory)
 ) {
@@ -92,6 +95,7 @@ fun DecisionEditorScreen(
     LaunchedEffect(uiState.savedSuccessfully) {
         if (uiState.savedSuccessfully) {
             viewModel.resetSavedFlag()
+            onSaved()   // notifico que se guardó
             onClose()
         }
     }
@@ -176,6 +180,8 @@ fun DecisionEditorScreen(
                 TextButton(onClick = {
                     showDeleteDialog = false
                     viewModel.deleteCurrentDecision()
+                    onSaved()   // notifico que hubo un cambio (eliminar)
+                    onClose()
                 }) {
                     Text("Borrar")
                 }
@@ -355,7 +361,7 @@ private fun StepThree(
                     text = "Emociones: ${if (emotions.isEmpty()) "Sin seleccionar" else emotions.joinToString { it.displayName }}",
                     style = MaterialTheme.typography.bodyMedium
                 )
-                Text(text = "Intensidad: $intensidad/5", style = MaterialTheme.typography.bodyMedium)
+                Text(text = "Intensidad: $intensity/5", style = MaterialTheme.typography.bodyMedium)
                 Text(text = "Categoría: ${category?.displayName ?: "Sin definir"}", style = MaterialTheme.typography.bodyMedium)
             }
         }
@@ -380,6 +386,7 @@ private fun StepThree(
         }
     }
 }
+
 
 @Composable
 private fun CategoryChip(
