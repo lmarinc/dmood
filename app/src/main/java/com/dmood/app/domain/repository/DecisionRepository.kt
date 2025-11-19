@@ -9,4 +9,5 @@ interface DecisionRepository {
     suspend fun getAll(): List<Decision>
     suspend fun getByDay(timestamp: Long): List<Decision>
     suspend fun getByRange(start: Long, end: Long): List<Decision>
+    suspend fun getById(id: Long): Decision?
 }

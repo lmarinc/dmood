@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import com.dmood.app.di.DmoodServiceLocator
 import com.dmood.app.ui.screen.decision.DecisionEditorViewModel
 import com.dmood.app.ui.screen.home.HomeViewModel
+import com.dmood.app.ui.screen.summary.WeeklySummaryViewModel
 
 object DmoodViewModelFactory : ViewModelProvider.Factory {
 
@@ -24,6 +25,14 @@ object DmoodViewModelFactory : ViewModelProvider.Factory {
                     decisionRepository = locator.decisionRepository,
                     validateDecisionUseCase = locator.validateDecisionUseCase,
                     calculateDecisionToneUseCase = locator.calculateDecisionToneUseCase
+                ) as T
+            }
+
+            modelClass.isAssignableFrom(WeeklySummaryViewModel::class.java) -> {
+                WeeklySummaryViewModel(
+                    decisionRepository = locator.decisionRepository,
+                    buildWeeklySummaryUseCase = locator.buildWeeklySummaryUseCase,
+                    extractWeeklyHighlightsUseCase = locator.extractWeeklyHighlightsUseCase
                 ) as T
             }
 

@@ -1,0 +1,66 @@
+package com.dmood.app.ui.screen.summary
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.dmood.app.domain.repository.DecisionRepository
+import com.dmood.app.domain.usecase.BuildWeeklySummaryUseCase
+import com.dmood.app.domain.usecase.ExtractWeeklyHighlightsUseCase
+import com.dmood.app.domain.usecase.WeeklyHighlight
+import com.dmood.app.domain.usecase.WeeklySummary
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+
+data class WeeklySummaryUiState(
+    val isLoading: Boolean = false,
+    val summary: WeeklySummary? = null,
+    val highlight: WeeklyHighlight? = null,
+    val errorMessage: String? = null
+)
+
+class WeeklySummaryViewModel(
+    private val decisionRepository: DecisionRepository,
+    private val buildWeeklySummaryUseCase: BuildWeeklySummaryUseCase,
+    private val extractWeeklyHighlightsUseCase: ExtractWeeklyHighlightsUseCase
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(WeeklySummaryUiState())
+    val uiState: StateFlow<WeeklySummaryUiState> = _uiState
+
+    fun loadWeeklySummary() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+
+            try {
+                val now = System.currentTimeMillis()
+                val sevenDaysMillis = 7L * 24 * 60 * 60 * 1000
+                val start = now - sevenDaysMillis
+                val end = now
+
+                val decisions = decisionRepository.getByRange(start, end)
+
+                val summary = buildWeeklySummaryUseCase(
+                    decisions = decisions,
+                    startDate = start,
+                    endDate = end
+                )
+
+                val highlight = extractWeeklyHighlightsUseCase(summary)
+
+                _uiState.value = WeeklySummaryUiState(
+                    isLoading = false,
+                    summary = summary,
+                    highlight = highlight,
+                    errorMessage = null
+                )
+            } catch (e: Exception) {
+                _uiState.value = WeeklySummaryUiState(
+                    isLoading = false,
+                    summary = null,
+                    highlight = null,
+                    errorMessage = "No se pudo cargar el resumen semanal."
+                )
+            }
+        }
+    }
+}

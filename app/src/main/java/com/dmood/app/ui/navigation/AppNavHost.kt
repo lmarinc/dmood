@@ -1,10 +1,16 @@
 package com.dmood.app.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
+import com.dmood.app.ui.DmoodViewModelFactory
 import com.dmood.app.ui.screen.decision.DecisionEditorScreen
+import com.dmood.app.ui.screen.decision.DecisionEditorViewModel
 import com.dmood.app.ui.screen.home.HomeScreen
 import com.dmood.app.ui.screen.onboarding.OnboardingScreen
 import com.dmood.app.ui.screen.settings.SettingsScreen
@@ -33,18 +39,41 @@ fun AppNavHost(
         composable(Screen.Home.route) {
             HomeScreen(
                 onAddDecisionClick = {
-                    navController.navigate(Screen.DecisionEditor.route)
+                    navController.navigate(Screen.DecisionEditor.buildRoute())
                 },
                 onOpenSummaryClick = {
                     navController.navigate(Screen.WeeklySummary.route)
+                },
+                onDecisionClick = { decisionId ->
+                    navController.navigate(Screen.DecisionEditor.buildRoute(decisionId))
                 }
             )
         }
-        composable(Screen.DecisionEditor.route) {
+        composable(
+            route = Screen.DecisionEditor.routeWithArgs,
+            arguments = listOf(
+                navArgument(Screen.DecisionEditor.decisionIdArg) {
+                    type = NavType.LongType
+                    defaultValue = -1L
+                }
+            )
+        ) { backStackEntry ->
+            val decisionId = backStackEntry.arguments
+                ?.getLong(Screen.DecisionEditor.decisionIdArg)
+                ?.takeIf { it != -1L }
+            val editorViewModel: DecisionEditorViewModel = viewModel(factory = DmoodViewModelFactory)
+
+            LaunchedEffect(decisionId) {
+                if (decisionId != null) {
+                    editorViewModel.loadDecision(decisionId)
+                }
+            }
+
             DecisionEditorScreen(
                 onClose = {
                     navController.popBackStack()
-                }
+                },
+                viewModel = editorViewModel
             )
         }
         composable(Screen.WeeklySummary.route) {

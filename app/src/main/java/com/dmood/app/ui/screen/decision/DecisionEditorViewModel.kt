@@ -15,10 +15,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 data class DecisionEditorUiState(
+    val decisionId: Long? = null,
     val text: String = "",
     val selectedEmotions: Set<EmotionType> = emptySet(),
     val intensity: Int = 3,
     val category: CategoryType? = null,
+    val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val validationError: String? = null,
     val savedSuccessfully: Boolean = false
@@ -32,6 +34,8 @@ class DecisionEditorViewModel(
 
     private val _uiState = MutableStateFlow(DecisionEditorUiState())
     val uiState: StateFlow<DecisionEditorUiState> = _uiState
+
+    private var editingTimestamp: Long? = null
 
     fun onTextChange(newText: String) {
         _uiState.value = _uiState.value.copy(
@@ -91,9 +95,10 @@ class DecisionEditorViewModel(
     fun saveDecision() {
         val state = _uiState.value
 
+        val timestamp = editingTimestamp ?: System.currentTimeMillis()
         val decision = Decision(
-            id = 0L,
-            timestamp = System.currentTimeMillis(),
+            id = state.decisionId ?: 0L,
+            timestamp = timestamp,
             text = state.text,
             emotions = state.selectedEmotions.toList(),
             intensity = state.intensity,
@@ -121,9 +126,17 @@ class DecisionEditorViewModel(
                 val tone = calculateDecisionToneUseCase(decision)
                 val finalDecision = decision.copy(tone = tone)
 
-                decisionRepository.add(finalDecision)
+                val savedId = if (finalDecision.id > 0) {
+                    decisionRepository.update(finalDecision)
+                    finalDecision.id
+                } else {
+                    decisionRepository.add(finalDecision)
+                }
+
+                editingTimestamp = finalDecision.timestamp
 
                 _uiState.value = _uiState.value.copy(
+                    decisionId = savedId.takeIf { it > 0 },
                     isSaving = false,
                     savedSuccessfully = true,
                     validationError = null
@@ -140,5 +153,38 @@ class DecisionEditorViewModel(
 
     fun resetSavedFlag() {
         _uiState.value = _uiState.value.copy(savedSuccessfully = false)
+    }
+
+    fun loadDecision(id: Long) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, validationError = null)
+
+            try {
+                val decision = decisionRepository.getById(id)
+                if (decision != null) {
+                    editingTimestamp = decision.timestamp
+                    _uiState.value = _uiState.value.copy(
+                        decisionId = decision.id,
+                        text = decision.text,
+                        selectedEmotions = decision.emotions.toSet(),
+                        intensity = decision.intensity,
+                        category = decision.category,
+                        isLoading = false,
+                        savedSuccessfully = false,
+                        validationError = null
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        validationError = "No se encontró la decisión para editar."
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    validationError = "No se pudo cargar la decisión."
+                )
+            }
+        }
     }
 }
