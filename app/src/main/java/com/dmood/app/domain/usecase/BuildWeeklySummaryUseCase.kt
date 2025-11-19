@@ -80,7 +80,7 @@ class BuildWeeklySummaryUseCase(
         groupedByDate.entries
             .sortedBy { it.key }
             .forEach { (date, dayDecisions) ->
-                val dayName = date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
+                val dayName = date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale("es", "ES"))
                 result[dayName] = calculateDailyMoodUseCase(dayDecisions)
             }
 
