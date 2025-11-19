@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -79,7 +80,7 @@ import java.util.Locale
 @Composable
 fun HomeScreen(
     onAddDecisionClick: () -> Unit,
-    onOpenSummaryClick: () -> Unit, // se mantiene por la firma, pero aquí ya no se usa
+    onOpenSummaryClick: () -> Unit, // mantengo la firma, aunque aquí no se use
     onDecisionClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = viewModel(factory = DmoodViewModelFactory)
@@ -97,7 +98,7 @@ fun HomeScreen(
 
     var showDeleteDialog by remember { mutableStateOf(false) }
 
-    // Filtrado SOLO por categoría (sin buscador de texto)
+    // Filtrado solo por categoría (sin búsqueda de texto)
     val filteredDecisions = remember(
         uiState.decisions,
         uiState.categoryFilter
@@ -112,7 +113,6 @@ fun HomeScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             HomeTopBar(
-                userName = uiState.userName,
                 isDeleteMode = uiState.isDeleteMode,
                 selectedCount = uiState.selectedForDeletion.size,
                 onToggleSelectionMode = viewModel::toggleDeleteMode,
@@ -141,6 +141,7 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            // Fondo suave con ligero gradiente
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -156,9 +157,17 @@ fun HomeScreen(
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 24.dp),
+                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
+                // HEADER DE SALUDO
+                item {
+                    HomeGreetingHeader(
+                        userName = uiState.userName
+                    )
+                }
+
+                // Selector de día
                 item {
                     DaySelectorCard(
                         formattedDate = formattedDate,
@@ -168,8 +177,7 @@ fun HomeScreen(
                     )
                 }
 
-                // Eliminado SelectionToggleRow: selección y borrado se gestionan desde el TopBar
-
+                // Filtros activos (solo categoría)
                 val hasFilters = uiState.categoryFilter != null
                 if (hasFilters) {
                     item {
@@ -183,7 +191,9 @@ fun HomeScreen(
                 if (uiState.isLoading) {
                     item {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 32.dp),
                             horizontalArrangement = Arrangement.Center
                         ) {
                             CircularProgressIndicator()
@@ -250,6 +260,74 @@ fun HomeScreen(
 }
 
 @Composable
+private fun HomeGreetingHeader(
+    userName: String?
+) {
+    val displayName = userName?.takeIf { it.isNotBlank() } ?: "de nuevo"
+    val initial = userName?.firstOrNull()?.uppercaseChar()?.toString() ?: "D"
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = MaterialTheme.shapes.large
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "Hola $displayName",
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold)
+                )
+                Text(
+                    text = "Registra, reflexiona y mejora cada día",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "Apunta tus decisiones importantes y aprende de ellas cada semana",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+//            Box(
+//                modifier = Modifier
+//                    .size(44.dp)
+//                    .clip(CircleShape)
+//                    .background(
+//                        Brush.radialGradient(
+//                            colors = listOf(
+//                                MaterialTheme.colorScheme.primary,
+//                                MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+//                            )
+//                        )
+//                    ),
+//                contentAlignment = Alignment.Center
+//            ) {
+//                Text(
+//                    text = initial,
+//                    style = MaterialTheme.typography.titleMedium,
+//                    color = MaterialTheme.colorScheme.onPrimary,
+//                    fontWeight = FontWeight.SemiBold
+//                )
+//            }
+        }
+    }
+}
+
+@Composable
 private fun DaySelectorCard(
     formattedDate: String,
     isToday: Boolean,
@@ -258,13 +336,13 @@ private fun DaySelectorCard(
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = CardDefaults.outlinedShape,
+        shape = MaterialTheme.shapes.large,
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -384,7 +462,6 @@ private fun EmptyDayCard() {
 
 @Composable
 private fun HomeTopBar(
-    userName: String?,
     isDeleteMode: Boolean,
     selectedCount: Int,
     onToggleSelectionMode: () -> Unit,
@@ -397,17 +474,16 @@ private fun HomeTopBar(
     var filterMenuExpanded by remember { mutableStateOf(false) }
     var layoutMenuExpanded by remember { mutableStateOf(false) }
 
-    val title = userName?.let { "Hola, $it" } ?: "Hola"
     val subtitle = if (isDeleteMode) {
         if (selectedCount > 0) "${selectedCount} seleccionada(s)"
         else "Toca las tarjetas para elegir"
     } else {
-        "Organiza tu mundo emocional"
+        null
     }
 
     DmoodTopBar(
-        title = title,
-        subtitle = subtitle,
+        title = "D-Mood",
+        subtitle = subtitle ?: "",
         actions = {
             if (isDeleteMode) {
                 IconButton(onClick = onToggleSelectionMode) {
@@ -575,12 +651,16 @@ private fun DecisionCard(
                 MaterialTheme.colorScheme.surface
             }
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+        shape = MaterialTheme.shapes.large
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = metrics.horizontalPadding, vertical = metrics.verticalPadding),
+                .padding(
+                    horizontal = metrics.horizontalPadding,
+                    vertical = metrics.verticalPadding
+                ),
             verticalArrangement = Arrangement.spacedBy(metrics.verticalSpacing)
         ) {
             if (isDeleteMode) {
@@ -591,7 +671,6 @@ private fun DecisionCard(
                         checked = isSelected,
                         onCheckedChange = { onToggleSelection() }
                     )
-                    // Eliminado el texto "Seleccionar"
                     Spacer(modifier = Modifier.width(4.dp))
                 }
             }
