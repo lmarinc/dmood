@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -29,13 +28,10 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ViewAgenda
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -47,7 +43,6 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -102,22 +97,14 @@ fun HomeScreen(
 
     var showDeleteDialog by remember { mutableStateOf(false) }
 
+    // Filtrado SOLO por categoría (sin buscador de texto)
     val filteredDecisions = remember(
         uiState.decisions,
-        uiState.searchQuery,
         uiState.categoryFilter
     ) {
         uiState.decisions.filter { decision ->
             val matchesCategory = uiState.categoryFilter?.let { decision.category == it } ?: true
-            val query = uiState.searchQuery.trim()
-            val matchesQuery = if (query.isBlank()) {
-                true
-            } else {
-                decision.text.contains(query, ignoreCase = true) ||
-                        decision.emotions.any { it.displayName.contains(query, ignoreCase = true) } ||
-                        decision.category.displayName.contains(query, ignoreCase = true)
-            }
-            matchesCategory && matchesQuery
+            matchesCategory
         }
     }
 
@@ -126,8 +113,6 @@ fun HomeScreen(
         topBar = {
             HomeTopBar(
                 userName = uiState.userName,
-                searchQuery = uiState.searchQuery,
-                onSearchQueryChange = viewModel::updateSearchQuery,
                 isDeleteMode = uiState.isDeleteMode,
                 selectedCount = uiState.selectedForDeletion.size,
                 onToggleSelectionMode = viewModel::toggleDeleteMode,
@@ -183,21 +168,14 @@ fun HomeScreen(
                     )
                 }
 
-                item {
-                    SelectionToggleRow(
-                        isDeleteMode = uiState.isDeleteMode,
-                        onToggle = viewModel::toggleDeleteMode
-                    )
-                }
+                // Eliminado SelectionToggleRow: selección y borrado se gestionan desde el TopBar
 
-                val hasFilters = uiState.categoryFilter != null || uiState.searchQuery.isNotBlank()
+                val hasFilters = uiState.categoryFilter != null
                 if (hasFilters) {
                     item {
                         ActiveFiltersRow(
                             categoryFilter = uiState.categoryFilter,
-                            onClearCategory = { viewModel.updateCategoryFilter(null) },
-                            searchQuery = uiState.searchQuery,
-                            onClearSearch = { viewModel.updateSearchQuery("") }
+                            onClearCategory = { viewModel.updateCategoryFilter(null) }
                         )
                     }
                 }
@@ -219,7 +197,6 @@ fun HomeScreen(
                             } else {
                                 FilteredEmptyState(
                                     onClearFilters = {
-                                        viewModel.updateSearchQuery("")
                                         viewModel.updateCategoryFilter(null)
                                     }
                                 )
@@ -238,21 +215,6 @@ fun HomeScreen(
                             )
                         }
                     }
-                }
-            }
-
-            if (uiState.isDeleteMode && uiState.selectedForDeletion.isNotEmpty()) {
-                Button(
-                    onClick = { showDeleteDialog = true },
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(start = 24.dp, bottom = 24.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError
-                    )
-                ) {
-                    Text("Eliminar (${uiState.selectedForDeletion.size})")
                 }
             }
         }
@@ -337,33 +299,11 @@ private fun DaySelectorCard(
     }
 }
 
-@Composable
-private fun SelectionToggleRow(
-    isDeleteMode: Boolean,
-    onToggle: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.End
-    ) {
-        TextButton(onClick = onToggle) {
-            Text(
-                text = if (isDeleteMode)
-                    "Cancelar selección"
-                else
-                    "Seleccionar para borrar"
-            )
-        }
-    }
-}
-
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ActiveFiltersRow(
     categoryFilter: CategoryType?,
-    onClearCategory: () -> Unit,
-    searchQuery: String,
-    onClearSearch: () -> Unit
+    onClearCategory: () -> Unit
 ) {
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -381,15 +321,6 @@ private fun ActiveFiltersRow(
                             .background(categoryFilter.toUiColor())
                     )
                 },
-                trailingIcon = {
-                    Icon(imageVector = Icons.Filled.Close, contentDescription = null)
-                }
-            )
-        }
-        if (searchQuery.isNotBlank()) {
-            AssistChip(
-                onClick = onClearSearch,
-                label = { Text("\"$searchQuery\"") },
                 trailingIcon = {
                     Icon(imageVector = Icons.Filled.Close, contentDescription = null)
                 }
@@ -454,8 +385,6 @@ private fun EmptyDayCard() {
 @Composable
 private fun HomeTopBar(
     userName: String?,
-    searchQuery: String,
-    onSearchQueryChange: (String) -> Unit,
     isDeleteMode: Boolean,
     selectedCount: Int,
     onToggleSelectionMode: () -> Unit,
@@ -482,20 +411,30 @@ private fun HomeTopBar(
         actions = {
             if (isDeleteMode) {
                 IconButton(onClick = onToggleSelectionMode) {
-                    Icon(imageVector = Icons.Filled.Close, contentDescription = "Cerrar modo selección")
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = "Cerrar modo selección"
+                    )
                 }
                 IconButton(
                     onClick = onDeleteSelectedClick,
                     enabled = selectedCount > 0
                 ) {
-                    Icon(imageVector = Icons.Filled.Delete, contentDescription = "Eliminar decisiones")
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = "Eliminar decisiones"
+                    )
                 }
             } else {
+                // Filtro por categoría
                 IconButton(onClick = { filterMenuExpanded = true }) {
                     Icon(
                         imageVector = Icons.Filled.FilterList,
                         contentDescription = "Filtrar decisiones",
-                        tint = if (categoryFilter != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                        tint = if (categoryFilter != null)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurface
                     )
                 }
                 DropdownMenu(
@@ -513,7 +452,10 @@ private fun HomeTopBar(
                         },
                         trailingIcon = {
                             if (categoryFilter == null) {
-                                Icon(imageVector = Icons.Filled.CheckCircle, contentDescription = null)
+                                Icon(
+                                    imageVector = Icons.Filled.CheckCircle,
+                                    contentDescription = null
+                                )
                             }
                         }
                     )
@@ -534,15 +476,22 @@ private fun HomeTopBar(
                             },
                             trailingIcon = {
                                 if (categoryFilter == type) {
-                                    Icon(imageVector = Icons.Filled.CheckCircle, contentDescription = null)
+                                    Icon(
+                                        imageVector = Icons.Filled.CheckCircle,
+                                        contentDescription = null
+                                    )
                                 }
                             }
                         )
                     }
                 }
 
+                // Selector de tamaño de card (lista / normal / grande)
                 IconButton(onClick = { layoutMenuExpanded = true }) {
-                    Icon(imageVector = Icons.Filled.ViewAgenda, contentDescription = "Opciones de vista")
+                    Icon(
+                        imageVector = Icons.Filled.ViewAgenda,
+                        contentDescription = "Opciones de vista"
+                    )
                 }
                 DropdownMenu(
                     expanded = layoutMenuExpanded,
@@ -552,7 +501,10 @@ private fun HomeTopBar(
                         DropdownMenuItem(
                             text = {
                                 Column {
-                                    Text(mode.label, fontWeight = FontWeight.Medium)
+                                    Text(
+                                        mode.label,
+                                        fontWeight = FontWeight.Medium
+                                    )
                                     Text(
                                         text = mode.description,
                                         style = MaterialTheme.typography.bodySmall,
@@ -568,35 +520,26 @@ private fun HomeTopBar(
                             },
                             trailingIcon = {
                                 if (cardLayoutMode == mode) {
-                                    Icon(imageVector = Icons.Filled.CheckCircle, contentDescription = null)
+                                    Icon(
+                                        imageVector = Icons.Filled.CheckCircle,
+                                        contentDescription = null
+                                    )
                                 }
                             }
                         )
                     }
                 }
 
+                // Entrada en modo selección desde el TopBar
                 IconButton(onClick = onToggleSelectionMode) {
-                    Icon(imageVector = Icons.Filled.CheckCircle, contentDescription = "Seleccionar para borrar")
+                    Icon(
+                        imageVector = Icons.Filled.CheckCircle,
+                        contentDescription = "Seleccionar para borrar"
+                    )
                 }
             }
         }
-    ) {
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = onSearchQueryChange,
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Encuentra cualquier nota, emoción o categoría") },
-            singleLine = true,
-            leadingIcon = { Icon(imageVector = Icons.Filled.Search, contentDescription = null) },
-            trailingIcon = {
-                if (searchQuery.isNotBlank()) {
-                    IconButton(onClick = { onSearchQueryChange("") }) {
-                        Icon(imageVector = Icons.Filled.Close, contentDescription = "Limpiar búsqueda")
-                    }
-                }
-            }
-        )
-    }
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -648,11 +591,8 @@ private fun DecisionCard(
                         checked = isSelected,
                         onCheckedChange = { onToggleSelection() }
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Seleccionar",
-                        style = MaterialTheme.typography.labelMedium
-                    )
+                    // Eliminado el texto "Seleccionar"
+                    Spacer(modifier = Modifier.width(4.dp))
                 }
             }
 
@@ -663,40 +603,48 @@ private fun DecisionCard(
                 overflow = TextOverflow.Ellipsis
             )
 
-            CategoryTag(category = decision.category)
+            // Modo NORMAL / GRANDE muestran categoría
+            if (layoutMode != COMPACT) {
+                CategoryTag(category = decision.category)
+            }
 
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                decision.emotions.take(2).forEach { emotion ->
-                    val background = emotion.color
-                    val textColor = if (background.luminance() > 0.6f) Color.Black else Color.White
+            // Solo en modo GRANDE mostramos emociones + intensidad
+            if (layoutMode == ROOMY) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    decision.emotions.take(2).forEach { emotion ->
+                        val background = emotion.color
+                        val textColor =
+                            if (background.luminance() > 0.6f) Color.Black else Color.White
+                        AssistChip(
+                            onClick = {},
+                            enabled = false,
+                            label = { Text(emotion.displayName) },
+                            colors = AssistChipDefaults.assistChipColors(
+                                disabledContainerColor = background.copy(alpha = 0.85f),
+                                disabledLabelColor = textColor
+                            )
+                        )
+                    }
+
                     AssistChip(
                         onClick = {},
                         enabled = false,
-                        label = { Text(emotion.displayName) },
+                        label = { Text("Intensidad ${decision.intensity}/5") },
+                        leadingIcon = {
+                            val icon =
+                                if (decision.intensity >= 3) Icons.Filled.ArrowCircleUp
+                                else Icons.Filled.ArrowCircleDown
+                            Icon(icon, contentDescription = null)
+                        },
                         colors = AssistChipDefaults.assistChipColors(
-                            disabledContainerColor = background.copy(alpha = 0.85f),
-                            disabledLabelColor = textColor
+                            disabledContainerColor = intensityColor,
+                            disabledLabelColor = Color.Black
                         )
                     )
                 }
-
-                AssistChip(
-                    onClick = {},
-                    enabled = false,
-                    label = { Text("Intensidad ${decision.intensity}/5") },
-                    leadingIcon = {
-                        val icon =
-                            if (decision.intensity >= 3) Icons.Filled.ArrowCircleUp else Icons.Filled.ArrowCircleDown
-                        Icon(icon, contentDescription = null)
-                    },
-                    colors = AssistChipDefaults.assistChipColors(
-                        disabledContainerColor = intensityColor,
-                        disabledLabelColor = Color.Black
-                    )
-                )
             }
         }
     }
@@ -724,6 +672,9 @@ private data class DecisionCardMetrics(
     val titleLines: Int
 )
 
+// COMPACT = solo texto
+// COZY = texto + categoría
+// ROOMY = texto + categoría + emociones + intensidad
 private fun CardLayoutMode.metrics(): DecisionCardMetrics = when (this) {
     COMPACT -> DecisionCardMetrics(
         horizontalPadding = 16.dp,
