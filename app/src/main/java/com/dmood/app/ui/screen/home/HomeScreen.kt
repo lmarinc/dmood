@@ -1,11 +1,11 @@
 package com.dmood.app.ui.screen.home
 
+import androidx.compose.foundation.ExperimentalLayoutApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -14,15 +14,23 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowCircleDown
 import androidx.compose.material.icons.filled.ArrowCircleUp
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.ViewAgenda
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -32,16 +40,18 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,14 +59,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.dmood.app.domain.model.CategoryType
 import com.dmood.app.domain.model.Decision
 import com.dmood.app.ui.DmoodViewModelFactory
+import com.dmood.app.ui.components.DmoodTopBar
+import com.dmood.app.ui.screen.home.CardLayoutMode.COMPACT
+import com.dmood.app.ui.screen.home.CardLayoutMode.COZY
+import com.dmood.app.ui.screen.home.CardLayoutMode.ROOMY
+import com.dmood.app.ui.theme.toUiColor
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -83,101 +102,103 @@ fun HomeScreen(
 
     var showDeleteDialog by remember { mutableStateOf(false) }
 
-    Surface(
-        modifier = modifier.fillMaxSize(),
-        color = Color.Transparent
+    val filteredDecisions = remember(
+        uiState.decisions,
+        uiState.searchQuery,
+        uiState.categoryFilter
     ) {
+        uiState.decisions.filter { decision ->
+            val matchesCategory = uiState.categoryFilter?.let { decision.category == it } ?: true
+            val query = uiState.searchQuery.trim()
+            val matchesQuery = if (query.isBlank()) {
+                true
+            } else {
+                decision.text.contains(query, ignoreCase = true) ||
+                        decision.emotions.any { it.displayName.contains(query, ignoreCase = true) } ||
+                        decision.category.displayName.contains(query, ignoreCase = true)
+            }
+            matchesCategory && matchesQuery
+        }
+    }
+
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        topBar = {
+            HomeTopBar(
+                userName = uiState.userName,
+                searchQuery = uiState.searchQuery,
+                onSearchQueryChange = viewModel::updateSearchQuery,
+                isDeleteMode = uiState.isDeleteMode,
+                selectedCount = uiState.selectedForDeletion.size,
+                onToggleSelectionMode = viewModel::toggleDeleteMode,
+                onDeleteSelectedClick = { showDeleteDialog = true },
+                categoryFilter = uiState.categoryFilter,
+                onCategorySelected = viewModel::updateCategoryFilter,
+                cardLayoutMode = uiState.cardLayout,
+                onCardLayoutChange = viewModel::updateCardLayout
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onAddDecisionClick,
+                containerColor = MaterialTheme.colorScheme.primary
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = "Nueva decisión",
+                    tint = MaterialTheme.colorScheme.onPrimary
+                )
+            }
+        }
+    ) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.surface,
-                            MaterialTheme.colorScheme.background
+                .padding(innerPadding)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.surface,
+                                MaterialTheme.colorScheme.background
+                            )
                         )
                     )
-                )
-        ) {
+            )
+
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = 24.dp, vertical = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                // Saludo + copy
                 item {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = uiState.userName?.let { "Hola, $it" } ?: "Hola",
-                            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Text(
-                            text = "Organiza tu mundo emocional registrando cada decisión clave",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    DaySelectorCard(
+                        formattedDate = formattedDate,
+                        isToday = isToday,
+                        onPrevious = viewModel::goToPreviousDay,
+                        onNext = viewModel::goToNextDay
+                    )
                 }
 
-                // Selector de día
                 item {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                        shape = CardDefaults.outlinedShape,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            IconButton(onClick = { viewModel.goToPreviousDay() }) {
-                                Icon(
-                                    imageVector = Icons.Filled.ChevronLeft,
-                                    contentDescription = "Día anterior"
-                                )
-                            }
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = formattedDate,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = if (isToday) "Hoy" else "Histórico",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            IconButton(
-                                onClick = { viewModel.goToNextDay() },
-                                enabled = !isToday
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.ChevronRight,
-                                    contentDescription = "Día siguiente"
-                                )
-                            }
-                        }
-                    }
+                    SelectionToggleRow(
+                        isDeleteMode = uiState.isDeleteMode,
+                        onToggle = viewModel::toggleDeleteMode
+                    )
                 }
 
-                // Botón para habilitar / cancelar modo borrar
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        TextButton(onClick = { viewModel.toggleDeleteMode() }) {
-                            Text(
-                                text = if (uiState.isDeleteMode)
-                                    "Cancelar selección"
-                                else
-                                    "Seleccionar para borrar"
-                            )
-                        }
+                val hasFilters = uiState.categoryFilter != null || uiState.searchQuery.isNotBlank()
+                if (hasFilters) {
+                    item {
+                        ActiveFiltersRow(
+                            categoryFilter = uiState.categoryFilter,
+                            onClearCategory = { viewModel.updateCategoryFilter(null) },
+                            searchQuery = uiState.searchQuery,
+                            onClearSearch = { viewModel.updateSearchQuery("") }
+                        )
                     }
                 }
 
@@ -190,42 +211,36 @@ fun HomeScreen(
                             CircularProgressIndicator()
                         }
                     }
-                }
-
-                if (uiState.decisions.isEmpty() && !uiState.isLoading) {
-                    item {
-                        EmptyDayCard()
-                    }
                 } else {
-                    items(uiState.decisions, key = { it.id }) { decision ->
-                        val isSelected = uiState.selectedForDeletion.contains(decision.id)
-                        DecisionCard(
-                            decision = decision,
-                            isDeleteMode = uiState.isDeleteMode,
-                            isSelected = isSelected,
-                            onCardClick = { onDecisionClick(decision.id) },
-                            onToggleSelection = { viewModel.toggleDecisionSelection(decision.id) }
-                        )
+                    if (filteredDecisions.isEmpty()) {
+                        item {
+                            if (uiState.decisions.isEmpty()) {
+                                EmptyDayCard()
+                            } else {
+                                FilteredEmptyState(
+                                    onClearFilters = {
+                                        viewModel.updateSearchQuery("")
+                                        viewModel.updateCategoryFilter(null)
+                                    }
+                                )
+                            }
+                        }
+                    } else {
+                        items(filteredDecisions, key = { it.id }) { decision ->
+                            val isSelected = uiState.selectedForDeletion.contains(decision.id)
+                            DecisionCard(
+                                decision = decision,
+                                isDeleteMode = uiState.isDeleteMode,
+                                isSelected = isSelected,
+                                layoutMode = uiState.cardLayout,
+                                onCardClick = { onDecisionClick(decision.id) },
+                                onToggleSelection = { viewModel.toggleDecisionSelection(decision.id) }
+                            )
+                        }
                     }
                 }
             }
 
-            // FAB "+" flotante para nueva decisión
-            FloatingActionButton(
-                onClick = onAddDecisionClick,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 24.dp, bottom = 24.dp),
-                containerColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = "Nueva decisión",
-                    tint = MaterialTheme.colorScheme.onPrimary
-                )
-            }
-
-            // Botón de eliminar cuando hay elementos seleccionados
             if (uiState.isDeleteMode && uiState.selectedForDeletion.isNotEmpty()) {
                 Button(
                     onClick = { showDeleteDialog = true },
@@ -240,34 +255,172 @@ fun HomeScreen(
                     Text("Eliminar (${uiState.selectedForDeletion.size})")
                 }
             }
+        }
+    }
 
-            // Diálogo de confirmación de borrado
-            if (showDeleteDialog && uiState.selectedForDeletion.isNotEmpty()) {
-                AlertDialog(
-                    onDismissRequest = { showDeleteDialog = false },
-                    title = { Text("Eliminar decisiones") },
-                    text = {
-                        Text(
-                            "¿Seguro que quieres borrar ${uiState.selectedForDeletion.size} " +
-                                    "decisión(es)? Esta acción no se puede deshacer."
-                        )
-                    },
-                    confirmButton = {
-                        TextButton(
-                            onClick = {
-                                showDeleteDialog = false
-                                viewModel.deleteSelectedDecisions()
-                            }
-                        ) {
-                            Text("Eliminar")
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showDeleteDialog = false }) {
-                            Text("Cancelar")
-                        }
-                    }
+    if (showDeleteDialog && uiState.selectedForDeletion.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Eliminar decisiones") },
+            text = {
+                Text(
+                    "¿Seguro que quieres borrar ${uiState.selectedForDeletion.size} " +
+                            "decisión(es)? Esta acción no se puede deshacer."
                 )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        viewModel.deleteSelectedDecisions()
+                    }
+                ) {
+                    Text("Eliminar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun DaySelectorCard(
+    formattedDate: String,
+    isToday: Boolean,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = CardDefaults.outlinedShape,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onPrevious) {
+                Icon(
+                    imageVector = Icons.Filled.ChevronLeft,
+                    contentDescription = "Día anterior"
+                )
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = formattedDate,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = if (isToday) "Hoy" else "Histórico",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            IconButton(
+                onClick = onNext,
+                enabled = !isToday
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.ChevronRight,
+                    contentDescription = "Día siguiente"
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelectionToggleRow(
+    isDeleteMode: Boolean,
+    onToggle: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End
+    ) {
+        TextButton(onClick = onToggle) {
+            Text(
+                text = if (isDeleteMode)
+                    "Cancelar selección"
+                else
+                    "Seleccionar para borrar"
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ActiveFiltersRow(
+    categoryFilter: CategoryType?,
+    onClearCategory: () -> Unit,
+    searchQuery: String,
+    onClearSearch: () -> Unit
+) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        if (categoryFilter != null) {
+            AssistChip(
+                onClick = onClearCategory,
+                label = { Text(categoryFilter.displayName) },
+                leadingIcon = {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(categoryFilter.toUiColor())
+                    )
+                },
+                trailingIcon = {
+                    Icon(imageVector = Icons.Filled.Close, contentDescription = null)
+                }
+            )
+        }
+        if (searchQuery.isNotBlank()) {
+            AssistChip(
+                onClick = onClearSearch,
+                label = { Text("\"$searchQuery\"") },
+                trailingIcon = {
+                    Icon(imageVector = Icons.Filled.Close, contentDescription = null)
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun FilteredEmptyState(onClearFilters: () -> Unit) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Sin coincidencias",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = "No encontramos decisiones para los filtros aplicados.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            TextButton(onClick = onClearFilters) {
+                Text("Limpiar filtros")
             }
         }
     }
@@ -298,26 +451,175 @@ private fun EmptyDayCard() {
     }
 }
 
+@Composable
+private fun HomeTopBar(
+    userName: String?,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    isDeleteMode: Boolean,
+    selectedCount: Int,
+    onToggleSelectionMode: () -> Unit,
+    onDeleteSelectedClick: () -> Unit,
+    categoryFilter: CategoryType?,
+    onCategorySelected: (CategoryType?) -> Unit,
+    cardLayoutMode: CardLayoutMode,
+    onCardLayoutChange: (CardLayoutMode) -> Unit
+) {
+    var filterMenuExpanded by remember { mutableStateOf(false) }
+    var layoutMenuExpanded by remember { mutableStateOf(false) }
+
+    val title = userName?.let { "Hola, $it" } ?: "Hola"
+    val subtitle = if (isDeleteMode) {
+        if (selectedCount > 0) "${selectedCount} seleccionada(s)"
+        else "Toca las tarjetas para elegir"
+    } else {
+        "Organiza tu mundo emocional"
+    }
+
+    DmoodTopBar(
+        title = title,
+        subtitle = subtitle,
+        actions = {
+            if (isDeleteMode) {
+                IconButton(onClick = onToggleSelectionMode) {
+                    Icon(imageVector = Icons.Filled.Close, contentDescription = "Cerrar modo selección")
+                }
+                IconButton(
+                    onClick = onDeleteSelectedClick,
+                    enabled = selectedCount > 0
+                ) {
+                    Icon(imageVector = Icons.Filled.Delete, contentDescription = "Eliminar decisiones")
+                }
+            } else {
+                IconButton(onClick = { filterMenuExpanded = true }) {
+                    Icon(
+                        imageVector = Icons.Filled.FilterList,
+                        contentDescription = "Filtrar decisiones",
+                        tint = if (categoryFilter != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                DropdownMenu(
+                    expanded = filterMenuExpanded,
+                    onDismissRequest = { filterMenuExpanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Todas las categorías") },
+                        onClick = {
+                            filterMenuExpanded = false
+                            onCategorySelected(null)
+                        },
+                        leadingIcon = {
+                            Icon(imageVector = Icons.Filled.FilterList, contentDescription = null)
+                        },
+                        trailingIcon = {
+                            if (categoryFilter == null) {
+                                Icon(imageVector = Icons.Filled.CheckCircle, contentDescription = null)
+                            }
+                        }
+                    )
+                    CategoryType.values().forEach { type ->
+                        DropdownMenuItem(
+                            text = { Text(type.displayName) },
+                            onClick = {
+                                filterMenuExpanded = false
+                                onCategorySelected(type)
+                            },
+                            leadingIcon = {
+                                Box(
+                                    modifier = Modifier
+                                        .size(12.dp)
+                                        .clip(CircleShape)
+                                        .background(type.toUiColor())
+                                )
+                            },
+                            trailingIcon = {
+                                if (categoryFilter == type) {
+                                    Icon(imageVector = Icons.Filled.CheckCircle, contentDescription = null)
+                                }
+                            }
+                        )
+                    }
+                }
+
+                IconButton(onClick = { layoutMenuExpanded = true }) {
+                    Icon(imageVector = Icons.Filled.ViewAgenda, contentDescription = "Opciones de vista")
+                }
+                DropdownMenu(
+                    expanded = layoutMenuExpanded,
+                    onDismissRequest = { layoutMenuExpanded = false }
+                ) {
+                    listOf(COMPACT, COZY, ROOMY).forEach { mode ->
+                        DropdownMenuItem(
+                            text = {
+                                Column {
+                                    Text(mode.label, fontWeight = FontWeight.Medium)
+                                    Text(
+                                        text = mode.description,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            },
+                            onClick = {
+                                layoutMenuExpanded = false
+                                onCardLayoutChange(mode)
+                            },
+                            trailingIcon = {
+                                if (cardLayoutMode == mode) {
+                                    Icon(imageVector = Icons.Filled.CheckCircle, contentDescription = null)
+                                }
+                            }
+                        )
+                    }
+                }
+
+                IconButton(onClick = onToggleSelectionMode) {
+                    Icon(imageVector = Icons.Filled.CheckCircle, contentDescription = "Seleccionar para borrar")
+                }
+            }
+        }
+    ) {
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = onSearchQueryChange,
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("Encuentra cualquier nota, emoción o categoría") },
+            singleLine = true,
+            leadingIcon = { Icon(imageVector = Icons.Filled.Search, contentDescription = null) },
+            trailingIcon = {
+                if (searchQuery.isNotBlank()) {
+                    IconButton(onClick = { onSearchQueryChange("") }) {
+                        Icon(imageVector = Icons.Filled.Close, contentDescription = "Limpiar búsqueda")
+                    }
+                }
+            }
+        )
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DecisionCard(
     decision: Decision,
     isDeleteMode: Boolean,
     isSelected: Boolean,
+    layoutMode: CardLayoutMode,
     onCardClick: () -> Unit,
     onToggleSelection: () -> Unit
 ) {
-    // Color según intensidad 1..5 (verde claro -> verde oscuro)
     val intensityColor = when (decision.intensity) {
-        1 -> Color(0xFFC8E6C9) // muy claro
+        1 -> Color(0xFFC8E6C9)
         2 -> Color(0xFFA5D6A7)
         3 -> Color(0xFF81C784)
         4 -> Color(0xFF4CAF50)
-        5 -> Color(0xFF2E7D32) // oscuro
+        5 -> Color(0xFF2E7D32)
         else -> Color(0xFFC8E6C9)
     }
 
     val clickAction = if (isDeleteMode) onToggleSelection else onCardClick
+    val metrics = remember(layoutMode) { layoutMode.metrics() }
 
     Card(
         modifier = Modifier
@@ -333,10 +635,11 @@ private fun DecisionCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
         Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = metrics.horizontalPadding, vertical = metrics.verticalPadding),
+            verticalArrangement = Arrangement.spacedBy(metrics.verticalSpacing)
         ) {
-            // Fila superior: checkbox cuando está en modo borrar
             if (isDeleteMode) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically
@@ -353,31 +656,30 @@ private fun DecisionCard(
                 }
             }
 
-            // Texto de la decisión
             Text(
                 text = decision.text,
                 style = MaterialTheme.typography.titleMedium,
-                maxLines = 2,
+                maxLines = metrics.titleLines,
                 overflow = TextOverflow.Ellipsis
             )
 
-            // Categoría
-            Text(
-                text = decision.category.displayName,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary
-            )
+            CategoryTag(category = decision.category)
 
-            // Emociones + intensidad con color
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 decision.emotions.take(2).forEach { emotion ->
+                    val background = emotion.color
+                    val textColor = if (background.luminance() > 0.6f) Color.Black else Color.White
                     AssistChip(
                         onClick = {},
                         enabled = false,
-                        label = { Text(emotion.displayName) }
+                        label = { Text(emotion.displayName) },
+                        colors = AssistChipDefaults.assistChipColors(
+                            disabledContainerColor = background.copy(alpha = 0.85f),
+                            disabledLabelColor = textColor
+                        )
                     )
                 }
 
@@ -398,4 +700,49 @@ private fun DecisionCard(
             }
         }
     }
+}
+
+@Composable
+private fun CategoryTag(category: CategoryType) {
+    val background = category.toUiColor()
+    val textColor = if (background.luminance() > 0.6f) Color.Black else Color.White
+    AssistChip(
+        onClick = {},
+        enabled = false,
+        label = { Text(category.displayName) },
+        colors = AssistChipDefaults.assistChipColors(
+            disabledContainerColor = background,
+            disabledLabelColor = textColor
+        )
+    )
+}
+
+private data class DecisionCardMetrics(
+    val horizontalPadding: Dp,
+    val verticalPadding: Dp,
+    val verticalSpacing: Dp,
+    val titleLines: Int
+)
+
+private fun CardLayoutMode.metrics(): DecisionCardMetrics = when (this) {
+    COMPACT -> DecisionCardMetrics(
+        horizontalPadding = 16.dp,
+        verticalPadding = 12.dp,
+        verticalSpacing = 8.dp,
+        titleLines = 2
+    )
+
+    COZY -> DecisionCardMetrics(
+        horizontalPadding = 20.dp,
+        verticalPadding = 16.dp,
+        verticalSpacing = 10.dp,
+        titleLines = 3
+    )
+
+    ROOMY -> DecisionCardMetrics(
+        horizontalPadding = 24.dp,
+        verticalPadding = 20.dp,
+        verticalSpacing = 12.dp,
+        titleLines = 4
+    )
 }

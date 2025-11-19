@@ -1,12 +1,16 @@
 // kotlin
 package com.dmood.app.ui.screen.decision
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -49,28 +53,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.ripple.rememberRipple
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dmood.app.domain.model.CategoryType
 import com.dmood.app.domain.model.EmotionType
 import com.dmood.app.ui.DmoodViewModelFactory
+import com.dmood.app.ui.theme.toUiColor
 import kotlin.math.roundToInt
-import kotlin.text.get
-
-private val categoryColors = mapOf(
-    CategoryType.TRABAJO_ESTUDIOS to Color(0xFFDDEBFF),
-    CategoryType.SALUD_BIENESTAR to Color(0xFFC8F7C5),
-    CategoryType.RELACIONES_SOCIAL to Color(0xFFFFE1E0),
-    CategoryType.FINANZAS_COMPRAS to Color(0xFFFFF2CC),
-    CategoryType.HABITOS_CRECIMIENTO to Color(0xFFE6D8FF),
-    CategoryType.OCIO_TIEMPO_LIBRE to Color(0xFFD4F0FF),
-    CategoryType.CASA_ORGANIZACION to Color(0xFFFFE5D0),
-    CategoryType.OTRO to Color(0xFFE0E0E0)
-)
+import kotlin.math.min
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
@@ -197,21 +195,66 @@ fun DecisionEditorScreen(
 
 @Composable
 private fun StepIndicator(currentStep: Int) {
+    val steps = listOf(
+        "Contexto",
+        "Emociones",
+        "Categoría"
+    )
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        (1..3).forEach { step ->
-            val isActive = step <= currentStep
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(6.dp)
-                    .clip(MaterialTheme.shapes.small)
-                    .background(
-                        if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-                    )
-            )
+        steps.forEachIndexed { index, label ->
+            val stepNumber = index + 1
+            val isActive = currentStep >= stepNumber
+            val isCurrent = currentStep == stepNumber
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.weight(1f)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = stepNumber.toString(),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = if (isActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    if (index != steps.lastIndex) {
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 6.dp)
+                                .height(2.dp)
+                                .weight(1f)
+                                .background(
+                                    if (currentStep > stepNumber) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+                                )
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (isCurrent) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }
@@ -274,6 +317,11 @@ private fun StepTwo(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(text = "Paso 2 · Emociones", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text = "Elige hasta dos emociones. Toca sobre el círculo para activarlas.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 EmotionWheel(selected = selected, onToggleEmotion = onToggleEmotion)
             }
         }
@@ -339,7 +387,7 @@ private fun StepThree(
                         val selected = type == category
                         CategoryChip(
                             text = type.displayName,
-                            color = categoryColors[type] ?: MaterialTheme.colorScheme.surfaceVariant,
+                            color = type.toUiColor(),
                             selected = selected,
                             onClick = { onCategoryChange(type) }
                         )
@@ -395,14 +443,32 @@ private fun CategoryChip(
     selected: Boolean,
     onClick: () -> Unit
 ) {
+    val backgroundColor by animateColorAsState(
+        targetValue = if (selected) color.copy(alpha = 0.95f) else color.copy(alpha = 0.6f),
+        label = "category-chip-bg"
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
+        label = "category-chip-border"
+    )
+    val interactionSource = remember { MutableInteractionSource() }
     Box(
         modifier = Modifier
-            .clip(MaterialTheme.shapes.medium)
-            .background(if (selected) color.copy(alpha = 0.9f) else color.copy(alpha = 0.6f))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(MaterialTheme.shapes.large)
+            .background(backgroundColor)
+            .border(width = if (selected) 1.5.dp else 1.dp, color = borderColor, shape = MaterialTheme.shapes.large)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = rememberRipple(bounded = true),
+                onClick = onClick
+            )
+            .padding(horizontal = 18.dp, vertical = 10.dp)
     ) {
-        Text(text = text, style = MaterialTheme.typography.bodyMedium)
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal
+        )
     }
 }
 
@@ -416,31 +482,83 @@ private fun EmotionWheel(
         listOf(EmotionType.SEGURO, EmotionType.NORMAL, EmotionType.MIEDO),
         listOf(EmotionType.TRISTE, EmotionType.INCOMODO, EmotionType.ENFADADO)
     )
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        layout.forEachIndexed { rowIndex, rowEmotions ->
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                rowEmotions.forEach { emotion ->
-                    val isCenter = emotion == EmotionType.NORMAL && rowIndex == 1
-                    val isSelected = selected.contains(emotion)
-                    val size = if (isCenter) 80.dp else 56.dp
-                    Box(
-                        modifier = Modifier
-                            .size(size)
-                            .clip(CircleShape)
-                            .background(
-                                if (isSelected) emotion.color else emotion.color.copy(alpha = 0.4f)
-                            )
-                            .clickable { onToggleEmotion(emotion) },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = emotion.displayName,
-                            style = MaterialTheme.typography.labelSmall,
-                            textAlign = TextAlign.Center
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
+        val diameter = min(maxWidth, 320.dp)
+        Box(
+            modifier = Modifier
+                .size(diameter)
+                .clip(CircleShape)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surfaceVariant,
+                            MaterialTheme.colorScheme.surface
                         )
+                    )
+                )
+                .padding(18.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.SpaceEvenly,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                layout.forEachIndexed { index, rowEmotions ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        rowEmotions.forEach { emotion ->
+                            EmotionItem(
+                                emotion = emotion,
+                                isCentral = emotion == EmotionType.NORMAL && index == 1,
+                                isSelected = selected.contains(emotion),
+                                onToggleEmotion = onToggleEmotion
+                            )
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun EmotionItem(
+    emotion: EmotionType,
+    isCentral: Boolean,
+    isSelected: Boolean,
+    onToggleEmotion: (EmotionType) -> Unit
+) {
+    val targetColor = if (isSelected) emotion.color else emotion.color.copy(alpha = 0.45f)
+    val backgroundColor by animateColorAsState(targetValue = targetColor, label = "emotion-color")
+    val scale by animateFloatAsState(targetValue = if (isSelected) 1.1f else 1f, label = "emotion-scale")
+    val interactionSource = remember { MutableInteractionSource() }
+    Box(
+        modifier = Modifier
+            .size(if (isCentral) 90.dp else 64.dp)
+            .graphicsLayer(scaleX = scale, scaleY = scale)
+            .clip(CircleShape)
+            .background(backgroundColor)
+            .border(
+                width = if (isSelected) 2.dp else 0.dp,
+                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                shape = CircleShape
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = rememberRipple(bounded = true, radius = 50.dp)
+            ) { onToggleEmotion(emotion) },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = emotion.displayName,
+            style = MaterialTheme.typography.labelSmall,
+            textAlign = TextAlign.Center
+        )
     }
 }

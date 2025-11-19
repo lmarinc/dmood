@@ -3,6 +3,7 @@ package com.dmood.app.ui.screen.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dmood.app.data.preferences.UserPreferencesRepository
+import com.dmood.app.domain.model.CategoryType
 import com.dmood.app.domain.model.Decision
 import com.dmood.app.domain.repository.DecisionRepository
 import java.time.LocalDate
@@ -18,8 +19,17 @@ data class HomeUiState(
     val selectedDate: LocalDate = LocalDate.now(),
     val userName: String? = null,
     val isDeleteMode: Boolean = false,
-    val selectedForDeletion: Set<Long> = emptySet()
+    val selectedForDeletion: Set<Long> = emptySet(),
+    val searchQuery: String = "",
+    val categoryFilter: CategoryType? = null,
+    val cardLayout: CardLayoutMode = CardLayoutMode.COZY
 )
+
+enum class CardLayoutMode(val label: String, val description: String) {
+    COMPACT(label = "Pequeño", description = "Muestra más decisiones"),
+    COZY(label = "Medio", description = "Equilibrio entre cantidad y espacio"),
+    ROOMY(label = "Tarjeta", description = "Más aire y jerarquía visual")
+}
 
 class HomeViewModel(
     private val decisionRepository: DecisionRepository,
@@ -133,5 +143,17 @@ class HomeViewModel(
                 )
             }
         }
+    }
+
+    fun updateSearchQuery(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+    }
+
+    fun updateCategoryFilter(categoryType: CategoryType?) {
+        _uiState.update { it.copy(categoryFilter = categoryType) }
+    }
+
+    fun updateCardLayout(mode: CardLayoutMode) {
+        _uiState.update { it.copy(cardLayout = mode) }
     }
 }
