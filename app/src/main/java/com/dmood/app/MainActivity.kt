@@ -27,7 +27,10 @@ class MainActivity : ComponentActivity() {
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry?.destination?.route
                 val startDestination = Screen.Onboarding.route
-                val showBottomBar = currentRoute != Screen.Onboarding.route
+
+                // Solo mostramos la bottom bar cuando hay ruta y no estamos en Onboarding
+                val showBottomBar =
+                    currentRoute != null && currentRoute != Screen.Onboarding.route
 
                 if (showBottomBar) {
                     Scaffold(
@@ -36,7 +39,7 @@ class MainActivity : ComponentActivity() {
                             BottomNavBar(
                                 currentRoute = currentRoute,
                                 onNavigate = { route ->
-                                    if (route != null && route != currentRoute) {
+                                    if (route != currentRoute) {
                                         navController.navigate(route) {
                                             popUpTo(Screen.Home.route) {
                                                 saveState = true
