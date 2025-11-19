@@ -1,6 +1,7 @@
 package com.dmood.app.data.local.dao
 
 import androidx.room.*
+import androidx.room.Insert
 import com.dmood.app.data.local.entity.DecisionEntity
 
 @Dao
