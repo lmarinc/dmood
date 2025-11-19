@@ -16,16 +16,24 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.dmood.app.ui.screen.decision.DecisionEditorUiState
+import com.dmood.app.ui.screen.decision.DecisionEditorViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DecisionEditorScreen(
     onClose: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+    modifier: Modifier = Modifier,
+    viewModel: DecisionEditorViewModel = viewModel()
+ ) {
+    val uiState: DecisionEditorUiState by viewModel.uiState.collectAsState()
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -54,11 +62,26 @@ fun DecisionEditorScreen(
                 text = "Editor de decisión (v1)",
                 style = MaterialTheme.typography.headlineSmall
             )
+            if (uiState.validationError != null) {
+                Text(
+                    text = uiState.validationError ?: "",
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
             Button(
-                onClick = onClose,
-                modifier = Modifier.fillMaxWidth()
+                onClick = {
+                    viewModel.saveDecision()
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !uiState.isSaving
             ) {
                 Text("Guardar")
+            }
+            if (uiState.savedSuccessfully) {
+                LaunchedEffect(Unit) {
+                    viewModel.resetSavedFlag()
+                    onClose()
+                }
             }
         }
     }
