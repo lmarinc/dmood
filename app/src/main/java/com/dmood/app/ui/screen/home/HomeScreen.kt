@@ -12,14 +12,14 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dmood.app.ui.DmoodViewModelFactory
-import com.dmood.app.ui.screen.home.HomeViewModel
-import kotlinx.coroutines.flow.collectAsState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,6 +30,12 @@ fun HomeScreen(
     viewModel: HomeViewModel = viewModel(factory = DmoodViewModelFactory)
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // Este bloque se ejecuta cada vez que Home entra en composición
+    LaunchedEffect(Unit) {
+        viewModel.loadTodayDecisions()
+    }
+
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -60,12 +66,15 @@ fun HomeScreen(
             ) {
                 Text("Ver resumen semanal")
             }
+
+            // Lista de decisiones del día
             uiState.todayDecisions.forEach { decision ->
                 Text(
                     text = "• ${decision.text}",
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
+
             if (uiState.errorMessage != null) {
                 Text(
                     text = uiState.errorMessage ?: "",
