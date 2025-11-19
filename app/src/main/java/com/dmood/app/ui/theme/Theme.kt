@@ -1,58 +1,80 @@
 package com.dmood.app.ui.theme
 
-import android.app.Activity
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+// Paleta base D-Mood: verde suave + naranja acento
+
+private val LightDmoodColorScheme = lightColorScheme(
+    primary = Color(0xFF2E7D32),          // Verde principal (app bar, botones)
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFA5D6A7),
+    onPrimaryContainer = Color(0xFF003314),
+
+    secondary = Color(0xFFFFB74D),        // Naranja acento
+    onSecondary = Color.Black,
+    secondaryContainer = Color(0xFFFFE0B2),
+    onSecondaryContainer = Color(0xFF442B00),
+
+    tertiary = Color(0xFF039BE5),         // Azul suave opcional
+    onTertiary = Color.White,
+
+    // OJO: esto manda en el fondo general de las pantallas
+    background = Color(0xFFE8F3EC),       // Verde-gris claro (NO es blanco)
+    onBackground = Color(0xFF102017),
+
+    surface = Color(0xFFFFFFFF),
+    onSurface = Color(0xFF121212),
+
+    surfaceVariant = Color(0xFFD4E4D9),   // Para Cards, etc.
+    onSurfaceVariant = Color(0xFF223326),
+
+    error = Color(0xFFB3261E),
+    onError = Color.White,
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
+private val DarkDmoodColorScheme = darkColorScheme(
+    primary = Color(0xFF81C784),
+    onPrimary = Color.Black,
+    primaryContainer = Color(0xFF1B5E20),
+    onPrimaryContainer = Color(0xFFA5D6A7),
 
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+    secondary = Color(0xFFFFCC80),
+    onSecondary = Color.Black,
+    secondaryContainer = Color(0xFF8D6E63),
+    onSecondaryContainer = Color(0xFFFFE0B2),
+
+    tertiary = Color(0xFF4FC3F7),
+    onTertiary = Color.Black,
+
+    background = Color(0xFF101412),
+    onBackground = Color(0xFFE0E3E1),
+
+    surface = Color(0xFF181C1A),
+    onSurface = Color(0xFFE0E3E1),
+    surfaceVariant = Color(0xFF2A322D),
+    onSurfaceVariant = Color(0xFFCED9D2),
+
+    error = Color(0xFFF2B8B5),
+    onError = Color(0xFF601410),
 )
 
 @Composable
 fun DmoodTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
+    val colorScheme: ColorScheme =
+        if (darkTheme) DarkDmoodColorScheme else LightDmoodColorScheme
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography,
+        typography = DmoodTypography,
         content = content
     )
 }
