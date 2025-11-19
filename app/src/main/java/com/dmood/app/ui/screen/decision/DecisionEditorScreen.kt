@@ -1,4 +1,3 @@
-// kotlin
 package com.dmood.app.ui.screen.decision
 
 import androidx.compose.animation.animateColorAsState
@@ -53,7 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.ripple.rememberRipple
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -68,7 +67,6 @@ import com.dmood.app.domain.model.EmotionType
 import com.dmood.app.ui.DmoodViewModelFactory
 import com.dmood.app.ui.theme.toUiColor
 import kotlin.math.roundToInt
-import kotlin.math.min
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
@@ -459,7 +457,6 @@ private fun CategoryChip(
             .border(width = if (selected) 1.5.dp else 1.dp, color = borderColor, shape = MaterialTheme.shapes.large)
             .clickable(
                 interactionSource = interactionSource,
-                indication = rememberRipple(bounded = true),
                 onClick = onClick
             )
             .padding(horizontal = 18.dp, vertical = 10.dp)
@@ -486,7 +483,7 @@ private fun EmotionWheel(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center
     ) {
-        val diameter = min(maxWidth, 320.dp)
+        val diameter = minOf(maxWidth, 320.dp)
         Box(
             modifier = Modifier
                 .size(diameter)
@@ -551,8 +548,8 @@ private fun EmotionItem(
             )
             .clickable(
                 interactionSource = interactionSource,
-                indication = rememberRipple(bounded = true, radius = 50.dp)
-            ) { onToggleEmotion(emotion) },
+                onClick = { onToggleEmotion(emotion) }
+            ),
         contentAlignment = Alignment.Center
     ) {
         Text(
