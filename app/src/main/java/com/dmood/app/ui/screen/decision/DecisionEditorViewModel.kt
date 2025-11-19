@@ -43,13 +43,25 @@ class DecisionEditorViewModel(
 
     fun onToggleEmotion(emotion: EmotionType) {
         val current = _uiState.value.selectedEmotions
-        val newSet = if (current.contains(emotion)) {
+
+        val newSet: Set<EmotionType> = if (current.contains(emotion)) {
+            // Si ya estaba seleccionada, la quitamos
             current - emotion
         } else {
             if (emotion == EmotionType.NORMAL) {
+                // Si el usuario elige NORMAL, va siempre sola
                 setOf(EmotionType.NORMAL)
             } else {
-                (current - EmotionType.NORMAL) + emotion
+                // Emoción distinta de NORMAL
+                val withoutNormal = current - EmotionType.NORMAL
+
+                if (withoutNormal.size >= 2) {
+                    // Ya hay 2 emociones seleccionadas → ignoramos el nuevo click
+                    withoutNormal
+                } else {
+                    // Aún hay hueco (0 o 1 emoción) → añadimos la nueva
+                    withoutNormal + emotion
+                }
             }
         }
 
