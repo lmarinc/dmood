@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,8 +12,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerDefaults
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
@@ -31,13 +31,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.lerp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dmood.app.domain.model.CategoryType
 import com.dmood.app.ui.DmoodViewModelFactory
@@ -45,6 +48,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.absoluteValue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -119,11 +123,8 @@ fun WeeklySummaryScreen(
                     // Evitar problemas de smart-cast usando let anidado sobre las propiedades nullable
                     uiState.summary?.let { summary ->
                         uiState.highlight?.let { highlight ->
-                            LazyRow(
-                                contentPadding = PaddingValues(vertical = 8.dp),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                item {
+                            val slides = buildList<@Composable () -> Unit> {
+                                add {
                                     SummaryCard(
                                         title = "Tono de la semana",
                                         description = highlight.emotionalTrend,
@@ -133,18 +134,18 @@ fun WeeklySummaryScreen(
                                         )
                                     )
                                 }
-                                item {
+                                add {
                                     ToneDistributionCard(
                                         calm = summary.calmPercentage,
                                         impulsive = summary.impulsivePercentage
                                     )
                                 }
-                                item {
-                                    HighlightDaysCard(highlight = highlight)
-                                }
-                                items(buildCategorySlides(summary.categoryDistribution, summary.totalDecisions)) { content ->
-                                    content()
-                                }
+                                add { HighlightDaysCard(highlight = highlight) }
+                                addAll(buildCategorySlides(summary.categoryDistribution, summary.totalDecisions))
+                            }
+
+                            if (slides.isNotEmpty()) {
+                                SummaryPager(slides = slides)
                             }
                         } ?: run {
                             Text(
@@ -191,6 +192,87 @@ private fun SummaryCard(
                 Text(text = title, style = MaterialTheme.typography.titleMedium, color = Color.White)
                 Text(text = description, style = MaterialTheme.typography.bodyLarge, color = Color.White)
             }
+        }
+    }
+}
+
+@Composable
+private fun SummaryPager(slides: List<@Composable () -> Unit>) {
+    val pagerState = rememberPagerState(pageCount = { slides.size })
+    val flingBehavior = PagerDefaults.flingBehavior(state = pagerState)
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        HorizontalPager(
+            state = pagerState,
+            pageSpacing = 16.dp,
+            flingBehavior = flingBehavior,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(240.dp)
+        ) { page ->
+            val pageOffset = (pagerState.currentPage - page + pagerState.currentPageOffsetFraction)
+                .absoluteValue
+            val scale = lerp(0.9f, 1f, 1f - pageOffset.coerceIn(0f, 1f))
+            val alpha = lerp(0.75f, 1f, 1f - pageOffset.coerceIn(0f, 1f))
+
+            SummarySlideContainer(
+                modifier = Modifier.graphicsLayer(
+                    scaleX = scale,
+                    scaleY = scale,
+                    alpha = alpha
+                )
+            ) {
+                slides[page]()
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            repeat(slides.size) { index ->
+                val selected = pagerState.currentPage == index
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 4.dp)
+                        .height(6.dp)
+                        .width(if (selected) 22.dp else 10.dp)
+                        .clip(MaterialTheme.shapes.small)
+                        .background(
+                            if (selected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
+                        )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummarySlideContainer(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                            MaterialTheme.colorScheme.surface
+                        )
+                    )
+                )
+                .padding(20.dp)
+        ) {
+            content()
         }
     }
 }

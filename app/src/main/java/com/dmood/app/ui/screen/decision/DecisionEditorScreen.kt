@@ -3,8 +3,11 @@ package com.dmood.app.ui.screen.decision
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -54,6 +57,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
@@ -139,6 +143,14 @@ fun DecisionEditorScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            MaterialTheme.colorScheme.background
+                        )
+                    )
+                )
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
@@ -151,25 +163,32 @@ fun DecisionEditorScreen(
                     .padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
+                StepProgressRow(totalSteps = 3, currentStep = uiState.currentStep)
+
                 AnimatedContent(
                     targetState = uiState.currentStep,
                     transitionSpec = {
-                        if (targetState > initialState) {
-                            slideInHorizontally(
-                                initialOffsetX = { it },
-                                animationSpec = tween(320)
-                            ) togetherWith slideOutHorizontally(
-                                targetOffsetX = { -it / 2 },
-                                animationSpec = tween(320)
-                            )
+                        val forward = targetState > initialState
+                        val baseTween = tween<IntOffset>(durationMillis = 420, easing = FastOutSlowInEasing)
+
+                        if (forward) {
+                            (slideInHorizontally(
+                                initialOffsetX = { it / 2 },
+                                animationSpec = baseTween
+                            ) + fadeIn(tween(260))) togetherWith
+                                (slideOutHorizontally(
+                                    targetOffsetX = { -it / 3 },
+                                    animationSpec = baseTween
+                                ) + fadeOut(tween(240)))
                         } else {
-                            slideInHorizontally(
-                                initialOffsetX = { -it },
-                                animationSpec = tween(320)
-                            ) togetherWith slideOutHorizontally(
-                                targetOffsetX = { it / 2 },
-                                animationSpec = tween(320)
-                            )
+                            (slideInHorizontally(
+                                initialOffsetX = { -it / 2 },
+                                animationSpec = baseTween
+                            ) + fadeIn(tween(260))) togetherWith
+                                (slideOutHorizontally(
+                                    targetOffsetX = { it / 3 },
+                                    animationSpec = baseTween
+                                ) + fadeOut(tween(240)))
                         }
                     },
                     label = "step-animation"
@@ -212,6 +231,37 @@ fun DecisionEditorScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun StepProgressRow(totalSteps: Int, currentStep: Int) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            repeat(totalSteps) { index ->
+                val color by animateColorAsState(
+                    targetValue = if (index + 1 <= currentStep) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.surfaceVariant,
+                    label = "step-indicator-color"
+                )
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(8.dp)
+                        .clip(MaterialTheme.shapes.small)
+                        .background(color)
+                )
+            }
+        }
+        Text(
+            text = "Paso ${currentStep} de $totalSteps",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

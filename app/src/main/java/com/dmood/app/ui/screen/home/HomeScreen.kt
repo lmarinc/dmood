@@ -1,5 +1,6 @@
 package com.dmood.app.ui.screen.home
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +19,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerDefaults
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -58,6 +62,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
@@ -66,6 +71,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.lerp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dmood.app.domain.model.CategoryType
 import com.dmood.app.domain.model.Decision
@@ -77,6 +83,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
+import kotlin.math.absoluteValue
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -217,16 +224,17 @@ fun HomeScreen(
                             ),
                             verticalArrangement = Arrangement.spacedBy(18.dp)
                         ) {
-                            // Saludo + resumen (solo hoy, y ahora dentro del scroll)
-                            if (isToday) {
-                                item {
-                                    GreetingAndSummaryCard(
-                                        userName = uiState.userName,
-                                        formattedSummaryDate = formattedSummaryDate,
-                                        daysUntilSummary = daysUntilSummary,
-                                        onOpenSummaryClick = onOpenSummaryClick
-                                    )
-                                }
+                            item {
+                                HomeHeroCarousel(
+                                    userName = uiState.userName,
+                                    formattedSummaryDate = formattedSummaryDate,
+                                    daysUntilSummary = daysUntilSummary,
+                                    onOpenSummaryClick = onOpenSummaryClick,
+                                    onAddDecisionClick = onAddDecisionClick,
+                                    decisionCount = filteredDecisions.size,
+                                    totalDecisions = uiState.decisions.size,
+                                    isToday = isToday
+                                )
                             }
 
                             // Filtros (también dentro del scroll)
@@ -409,8 +417,115 @@ private fun DateNavigatorRow(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun GreetingAndSummaryCard(
+private fun HomeHeroCarousel(
+    userName: String?,
+    formattedSummaryDate: String,
+    daysUntilSummary: Int,
+    onOpenSummaryClick: () -> Unit,
+    onAddDecisionClick: () -> Unit,
+    decisionCount: Int,
+    totalDecisions: Int,
+    isToday: Boolean
+) {
+    val pagerState = rememberPagerState(pageCount = { 3 })
+    val flingBehavior = PagerDefaults.flingBehavior(state = pagerState)
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        HorizontalPager(
+            state = pagerState,
+            flingBehavior = flingBehavior,
+            pageSpacing = 16.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(230.dp)
+        ) { page ->
+            val pageOffset = (pagerState.currentPage - page + pagerState.currentPageOffsetFraction)
+                .absoluteValue
+            val scale = lerp(0.9f, 1f, 1f - pageOffset.coerceIn(0f, 1f))
+            val alpha = lerp(0.7f, 1f, 1f - pageOffset.coerceIn(0f, 1f))
+
+            Card(
+                modifier = Modifier
+                    .graphicsLayer(
+                        scaleX = scale,
+                        scaleY = scale,
+                        alpha = alpha
+                    )
+                    .fillMaxWidth(),
+                shape = MaterialTheme.shapes.extraLarge,
+                elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+            ) {
+                val gradientColors = when (page) {
+                    0 -> listOf(
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
+                    )
+                    1 -> listOf(
+                        MaterialTheme.colorScheme.secondary.copy(alpha = 0.14f),
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                    )
+                    else -> listOf(
+                        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f),
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .background(Brush.linearGradient(gradientColors))
+                        .fillMaxSize()
+                        .padding(20.dp)
+                ) {
+                    when (page) {
+                        0 -> GreetingHeroContent(
+                            userName = userName,
+                            formattedSummaryDate = formattedSummaryDate,
+                            daysUntilSummary = daysUntilSummary,
+                            onOpenSummaryClick = onOpenSummaryClick
+                        )
+
+                        1 -> DecisionOverviewSlide(
+                            decisionCount = decisionCount,
+                            totalDecisions = totalDecisions,
+                            isToday = isToday
+                        )
+
+                        2 -> AddDecisionSlide(
+                            onAddDecisionClick = onAddDecisionClick,
+                            isEnabled = isToday
+                        )
+                    }
+                }
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            repeat(3) { index ->
+                val selected = pagerState.currentPage == index
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 4.dp)
+                        .height(6.dp)
+                        .width(if (selected) 22.dp else 10.dp)
+                        .clip(CircleShape)
+                        .background(
+                            color = if (selected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
+                        )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GreetingHeroContent(
     userName: String?,
     formattedSummaryDate: String,
     daysUntilSummary: Int,
@@ -424,72 +539,163 @@ private fun GreetingAndSummaryCard(
         else -> "Tu resumen semanal estará disponible en $daysUntilSummary días."
     }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-        shape = MaterialTheme.shapes.extraLarge
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-                modifier = Modifier.fillMaxWidth()
+            Text(
+                text = "Hola, $displayName",
+                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold)
+            )
+            Text(
+                text = "Organiza tu mundo emocional hoy",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Column(
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = "Resumen semanal",
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+            )
+            Text(
+                text = "Próximo resumen: $formattedSummaryDate",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = summaryStatusText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = "Cuantas más decisiones registres esta semana, más completo y útil será tu resumen.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            TextButton(
+                onClick = onOpenSummaryClick,
+                enabled = daysUntilSummary <= 0
             ) {
-                Text(
-                    text = "Hola, $displayName",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium)
-                )
-                Text(
-                    text = "Organiza tu mundo emocional hoy",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text("Ver resumen semanal")
             }
+        }
+    }
+}
 
-            Spacer(modifier = Modifier.height(4.dp))
+@Composable
+private fun DecisionOverviewSlide(
+    decisionCount: Int,
+    totalDecisions: Int,
+    isToday: Boolean
+) {
+    val subtitle = if (isToday) "Decisiones registradas hoy" else "Decisiones de este día"
 
-            Column(
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "Resumen semanal",
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
-                )
-                Text(
-                    text = "Próximo resumen: $formattedSummaryDate",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = summaryStatusText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = "Cuantas más decisiones registres esta semana, más completo y útil será tu resumen.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "$decisionCount en esta vista",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = if (totalDecisions == 0) "Aún no has registrado decisiones." else "${totalDecisions} en total durante la jornada.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    TextButton(
-                        onClick = onOpenSummaryClick,
-                        enabled = daysUntilSummary <= 0
-                    ) {
-                        Text("Ver resumen semanal")
-                    }
-                }
-            }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            PillStat(
+                label = "Activas",
+                value = decisionCount,
+                accent = MaterialTheme.colorScheme.primary
+            )
+            PillStat(
+                label = "Jornada",
+                value = totalDecisions,
+                accent = MaterialTheme.colorScheme.secondary
+            )
+        }
+    }
+}
+
+@Composable
+private fun PillStat(label: String, value: Int, accent: Color) {
+    Column(
+        modifier = Modifier
+            .weight(1f)
+            .clip(MaterialTheme.shapes.large)
+            .background(accent.copy(alpha = 0.12f))
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = accent
+        )
+        Text(
+            text = value.toString(),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+@Composable
+private fun AddDecisionSlide(onAddDecisionClick: () -> Unit, isEnabled: Boolean) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.SpaceBetween,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = if (isEnabled) "Añade una nueva decisión" else "Solo lectura",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = if (isEnabled) "Captura lo que sientes ahora mismo." else "Solo puedes consultar las decisiones de ese día.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Button(
+            onClick = onAddDecisionClick,
+            enabled = isEnabled,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            shape = MaterialTheme.shapes.large
+        ) {
+            Icon(imageVector = Icons.Filled.Add, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Registrar decisión")
         }
     }
 }
