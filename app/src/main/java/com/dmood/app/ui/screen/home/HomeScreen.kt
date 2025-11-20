@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowCircleDown
@@ -154,7 +155,7 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(
                     top = innerPadding.calculateTopPadding(),
-                    bottom = 0.dp,    // ← FIX REAL
+                    bottom = 0.dp,
                     start = 0.dp,
                     end = 0.dp
                 )
@@ -248,24 +249,54 @@ fun HomeScreen(
                                     colors = CardDefaults.cardColors(
                                         containerColor = MaterialTheme.colorScheme.surface
                                     ),
-                                    elevation = CardDefaults.cardElevation(8.dp)
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
                                 ) {
                                     Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(20.dp),
+                                            .padding(horizontal = 20.dp, vertical = 16.dp),
                                         verticalArrangement = Arrangement.spacedBy(16.dp)
                                     ) {
+                                        // Cabecera de la card: título + contador + botón "+"
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            val decisionsCount = filteredDecisions.size
 
-                                        // Botón "+" integrado en la card
-                                        if (isToday && !uiState.isDeleteMode) {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.End
+                                            Column(
+                                                verticalArrangement = Arrangement.spacedBy(2.dp)
                                             ) {
+                                                Text(
+                                                    text = "Tus decisiones",
+                                                    style = MaterialTheme.typography.titleMedium.copy(
+                                                        fontWeight = FontWeight.SemiBold
+                                                    )
+                                                )
+
+                                                val subtitleText = when {
+                                                    decisionsCount == 0 && isToday ->
+                                                        "Empieza registrando tu primera decisión de hoy."
+                                                    decisionsCount == 0 && !isToday ->
+                                                        "No hay decisiones guardadas en este día."
+                                                    isToday ->
+                                                        "$decisionsCount decisiones registradas hoy."
+                                                    else ->
+                                                        "$decisionsCount decisiones guardadas."
+                                                }
+
+                                                Text(
+                                                    text = subtitleText,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+
+                                            if (isToday && !uiState.isDeleteMode) {
                                                 Box(
                                                     modifier = Modifier
-                                                        .size(52.dp)
+                                                        .size(40.dp)
                                                         .clip(CircleShape)
                                                         .background(MaterialTheme.colorScheme.primary)
                                                         .clickable { onAddDecisionClick() },
@@ -274,7 +305,7 @@ fun HomeScreen(
                                                     Text(
                                                         text = "+",
                                                         color = MaterialTheme.colorScheme.onPrimary,
-                                                        style = MaterialTheme.typography.titleLarge,
+                                                        style = MaterialTheme.typography.titleMedium,
                                                         fontWeight = FontWeight.Bold
                                                     )
                                                 }
@@ -284,7 +315,15 @@ fun HomeScreen(
                                         // Contenido: vacío / filtrado / lista de decisiones
                                         if (filteredDecisions.isEmpty()) {
                                             if (uiState.decisions.isEmpty()) {
-                                                EmptyDayCard(isToday = isToday)
+                                                Text(
+                                                    text = if (isToday)
+                                                        "Cuando tomes una decisión importante, regístrala aquí para poder revisarla después."
+                                                    else
+                                                        "No hay decisiones registradas para esta fecha.",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+                                                )
                                             } else {
                                                 FilteredEmptyState(
                                                     onClearFilters = {
@@ -293,22 +332,26 @@ fun HomeScreen(
                                                 )
                                             }
                                         } else {
-                                            filteredDecisions.forEach { decision ->
-                                                val isSelected =
-                                                    uiState.selectedForDeletion.contains(decision.id)
-                                                val isReadOnly = !isToday
+                                            Column(
+                                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                                            ) {
+                                                filteredDecisions.forEach { decision ->
+                                                    val isSelected =
+                                                        uiState.selectedForDeletion.contains(decision.id)
+                                                    val isReadOnly = !isToday
 
-                                                DecisionCard(
-                                                    decision = decision,
-                                                    isDeleteMode = uiState.isDeleteMode,
-                                                    isSelected = isSelected,
-                                                    isReadOnly = isReadOnly,
-                                                    layoutMode = uiState.cardLayout,
-                                                    onCardClick = { onDecisionClick(decision.id) },
-                                                    onToggleSelection = {
-                                                        viewModel.toggleDecisionSelection(decision.id)
-                                                    }
-                                                )
+                                                    DecisionCard(
+                                                        decision = decision,
+                                                        isDeleteMode = uiState.isDeleteMode,
+                                                        isSelected = isSelected,
+                                                        isReadOnly = isReadOnly,
+                                                        layoutMode = uiState.cardLayout,
+                                                        onCardClick = { onDecisionClick(decision.id) },
+                                                        onToggleSelection = {
+                                                            viewModel.toggleDecisionSelection(decision.id)
+                                                        }
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -773,6 +816,15 @@ private fun DecisionCard(
         else -> onCardClick
     }
 
+    val border = if (isSelected && isDeleteMode) {
+        BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+    } else null
+
+    val containerColor = when {
+        isReadOnly -> MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+        else -> MaterialTheme.colorScheme.surface
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -781,17 +833,13 @@ private fun DecisionCard(
                 onClick = clickAction
             ),
         colors = CardDefaults.cardColors(
-            containerColor = when {
-                isSelected && isDeleteMode ->
-                    MaterialTheme.colorScheme.surfaceVariant
-                isReadOnly ->
-                    MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
-                else ->
-                    MaterialTheme.colorScheme.surface
-            }
+            containerColor = containerColor
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-        shape = MaterialTheme.shapes.large
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isReadOnly) 2.dp else 8.dp
+        ),
+        shape = MaterialTheme.shapes.large,
+        border = border
     ) {
         Column(
             modifier = Modifier
@@ -802,18 +850,36 @@ private fun DecisionCard(
                 ),
             verticalArrangement = Arrangement.spacedBy(metrics.verticalSpacing)
         ) {
-            if (isDeleteMode) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Checkbox(
-                        checked = isSelected,
-                        onCheckedChange = { onToggleSelection() }
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
+            // Fila superior: categoría + estado (solo lectura / selección)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (layoutMode != CardLayoutMode.COMPACT) {
+                    CategoryTag(category = decision.category)
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isReadOnly && !isDeleteMode) {
+                        Icon(
+                            imageVector = Icons.Filled.Lock,
+                            contentDescription = "Solo lectura",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    if (isDeleteMode) {
+                        Checkbox(
+                            checked = isSelected,
+                            onCheckedChange = { onToggleSelection() }
+                        )
+                    }
                 }
             }
 
+            // Texto principal de la decisión
             Text(
                 text = decision.text,
                 style = MaterialTheme.typography.titleMedium,
@@ -821,15 +887,13 @@ private fun DecisionCard(
                 overflow = TextOverflow.Ellipsis
             )
 
-            if (layoutMode != CardLayoutMode.COMPACT) {
-                CategoryTag(category = decision.category)
-            }
-
+            // Emojis / información extra solo en modo ROOMY
             if (layoutMode == CardLayoutMode.ROOMY) {
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    // Emociones (máx 2) como chips suaves
                     decision.emotions.take(2).forEach { emotion ->
                         val background = emotion.color
                         val textColor =
@@ -839,12 +903,13 @@ private fun DecisionCard(
                             enabled = false,
                             label = { Text(emotion.displayName) },
                             colors = AssistChipDefaults.assistChipColors(
-                                disabledContainerColor = background.copy(alpha = 0.85f),
+                                disabledContainerColor = background.copy(alpha = 0.9f),
                                 disabledLabelColor = textColor
                             )
                         )
                     }
 
+                    // Intensidad
                     AssistChip(
                         onClick = {},
                         enabled = false,
@@ -860,20 +925,6 @@ private fun DecisionCard(
                             disabledLabelColor = Color.Black
                         )
                     )
-
-                    if (isReadOnly) {
-                        AssistChip(
-                            onClick = {},
-                            enabled = false,
-                            label = { Text("Solo lectura") },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Filled.Lock,
-                                    contentDescription = null
-                                )
-                            }
-                        )
-                    }
                 }
             }
         }
