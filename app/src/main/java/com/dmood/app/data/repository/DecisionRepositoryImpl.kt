@@ -24,26 +24,36 @@ class DecisionRepositoryImpl(
     }
 
     override suspend fun getAll(): List<Decision> {
-        TODO("Not yet implemented")
+        // Usamos todo el rango posible
+        return dao.getDecisionsForRange(Long.MIN_VALUE, Long.MAX_VALUE)
+            .map(DecisionMapper::toDomain)
     }
 
     override suspend fun getByDay(timestamp: Long): List<Decision> {
-        TODO("Not yet implemented")
-    }
-
-    override fun getDecisionsForDayFlow(
-        startMillis: Long,
-        endMillis: Long
-    ): Flow<List<Decision>> {
-        return dao.getDecisionsForDay(startMillis, endMillis)
-            .map { list -> list.map(DecisionMapper::toDomain) }
+        val startMillis = timestamp
+        val endMillis = startMillis + 24L * 60L * 60L * 1000L
+        return dao.getDecisionsForRange(startMillis, endMillis)
+            .map(DecisionMapper::toDomain)
     }
 
     override suspend fun getByRange(start: Long, end: Long): List<Decision> {
-        return dao.getDecisionsForRange(start, end).map(DecisionMapper::toDomain)
+        return dao.getDecisionsForRange(start, end)
+            .map(DecisionMapper::toDomain)
     }
 
     override suspend fun getById(id: Long): Decision? {
         return dao.getById(id)?.let(DecisionMapper::toDomain)
+    }
+
+    override fun getDecisionsForDayFlow(
+        start: Long,
+        end: Long
+    ): Flow<List<Decision>> {
+        return dao.getDecisionsForDay(start, end)
+            .map { list -> list.map(DecisionMapper::toDomain) }
+    }
+
+    override suspend fun getEarliestDecisionTimestamp(): Long? {
+        return dao.getEarliestTimestamp()
     }
 }

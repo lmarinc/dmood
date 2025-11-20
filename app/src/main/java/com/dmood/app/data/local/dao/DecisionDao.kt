@@ -1,6 +1,11 @@
 package com.dmood.app.data.local.dao
 
-import androidx.room.*
+import androidx.room.Dao
+import androidx.room.Delete
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import androidx.room.Update
 import com.dmood.app.data.local.entity.DecisionEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -33,7 +38,7 @@ interface DecisionDao {
     ): Flow<List<DecisionEntity>>
 
     /**
-     * Resumen semanal (One-shot)
+     * Resumen / consultas por rango (one-shot)
      */
     @Query(
         """
@@ -50,4 +55,8 @@ interface DecisionDao {
 
     @Query("SELECT * FROM decisions WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): DecisionEntity?
+
+    // Nuevo: primer timestamp disponible
+    @Query("SELECT MIN(timestamp) FROM decisions")
+    suspend fun getEarliestTimestamp(): Long?
 }

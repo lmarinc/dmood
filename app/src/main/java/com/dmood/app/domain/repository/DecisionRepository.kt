@@ -12,4 +12,7 @@ interface DecisionRepository {
     suspend fun getByRange(start: Long, end: Long): List<Decision>
     suspend fun getById(id: Long): Decision?
     fun getDecisionsForDayFlow(start: Long, end: Long): Flow<List<Decision>>
+
+    // Nuevo método para limitar navegación de días
+    suspend fun getEarliestDecisionTimestamp(): Long?
 }

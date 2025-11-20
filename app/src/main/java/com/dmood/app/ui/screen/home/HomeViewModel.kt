@@ -6,6 +6,7 @@ import com.dmood.app.data.preferences.UserPreferencesRepository
 import com.dmood.app.domain.model.CategoryType
 import com.dmood.app.domain.model.Decision
 import com.dmood.app.domain.repository.DecisionRepository
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,7 +23,8 @@ data class HomeUiState(
     val selectedForDeletion: Set<Long> = emptySet(),
     val searchQuery: String = "",
     val categoryFilter: CategoryType? = null,
-    val cardLayout: CardLayoutMode = CardLayoutMode.COZY
+    val cardLayout: CardLayoutMode = CardLayoutMode.COZY,
+    val minAvailableDate: LocalDate = LocalDate.now()
 )
 
 enum class CardLayoutMode(val label: String, val description: String) {
@@ -43,6 +45,7 @@ class HomeViewModel(
 
     init {
         observeUserName()
+        loadMinAvailableDate()
         observeDecisionsForCurrentDay()
     }
 
@@ -51,6 +54,22 @@ class HomeViewModel(
             userPreferencesRepository.userNameFlow.collect { name ->
                 _uiState.update { it.copy(userName = name) }
             }
+        }
+    }
+
+    private fun loadMinAvailableDate() {
+        viewModelScope.launch {
+            val earliestTimestamp = try {
+                decisionRepository.getEarliestDecisionTimestamp()
+            } catch (e: Exception) {
+                null
+            }
+
+            val minDate = earliestTimestamp?.let {
+                Instant.ofEpochMilli(it).atZone(zoneId).toLocalDate()
+            } ?: LocalDate.now()
+
+            _uiState.update { it.copy(minAvailableDate = minDate) }
         }
     }
 
@@ -69,7 +88,6 @@ class HomeViewModel(
                         state.copy(
                             decisions = decisions,
                             isLoading = false,
-                            // si borras algo, limpiamos selecciones que ya no existen
                             selectedForDeletion = state.selectedForDeletion.intersect(validIds)
                         )
                     }
@@ -78,6 +96,9 @@ class HomeViewModel(
     }
 
     fun goToPreviousDay() {
+        val current = _uiState.value
+        val candidate = current.selectedDate.minusDays(1)
+        if (candidate.isBefore(current.minAvailableDate)) return
         updateSelectedDate(-1)
     }
 

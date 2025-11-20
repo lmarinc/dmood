@@ -29,10 +29,13 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.ViewAgenda
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -40,7 +43,6 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -61,6 +63,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -68,19 +71,18 @@ import com.dmood.app.domain.model.CategoryType
 import com.dmood.app.domain.model.Decision
 import com.dmood.app.ui.DmoodViewModelFactory
 import com.dmood.app.ui.components.DmoodTopBar
-import com.dmood.app.ui.screen.home.CardLayoutMode.COMPACT
-import com.dmood.app.ui.screen.home.CardLayoutMode.COZY
-import com.dmood.app.ui.screen.home.CardLayoutMode.ROOMY
 import com.dmood.app.ui.theme.toUiColor
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.Locale
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HomeScreen(
     onAddDecisionClick: () -> Unit,
-    onOpenSummaryClick: () -> Unit, // mantengo la firma, aunque aquí no se use
+    onOpenSummaryClick: () -> Unit,
     onDecisionClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = viewModel(factory = DmoodViewModelFactory)
@@ -88,17 +90,39 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     val locale = remember { Locale("es", "ES") }
-    val formatter = remember { DateTimeFormatter.ofPattern("EEEE, dd/MM", locale) }
+    val dayFormatter = remember { DateTimeFormatter.ofPattern("EEEE, dd/MM", locale) }
+    val summaryDateFormatter = remember {
+        DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", locale)
+    }
+
+    val today = LocalDate.now()
+    val isToday = uiState.selectedDate == today
+    val canGoBack = uiState.selectedDate.isAfter(uiState.minAvailableDate)
+
     val formattedDate = remember(uiState.selectedDate) {
-        uiState.selectedDate.format(formatter).replaceFirstChar { char ->
+        uiState.selectedDate.format(dayFormatter).replaceFirstChar { char ->
             if (char.isLowerCase()) char.titlecase(locale) else char.toString()
         }
     }
-    val isToday = uiState.selectedDate == LocalDate.now()
+
+    // Próximo domingo como fecha del resumen semanal
+    val nextSummaryDate = remember(today) {
+        val dow = today.dayOfWeek
+        val daysUntilSunday =
+            (DayOfWeek.SUNDAY.value - dow.value + 7) % 7 // 0 si es hoy, >0 si falta
+        if (daysUntilSunday == 0) today else today.plusDays(daysUntilSunday.toLong())
+    }
+    val daysUntilSummary = remember(today, nextSummaryDate) {
+        ChronoUnit.DAYS.between(today, nextSummaryDate).toInt()
+    }
+    val formattedSummaryDate = remember(nextSummaryDate) {
+        nextSummaryDate.format(summaryDateFormatter).replaceFirstChar { char ->
+            if (char.isLowerCase()) char.titlecase(locale) else char.toString()
+        }
+    }
 
     var showDeleteDialog by remember { mutableStateOf(false) }
 
-    // Filtrado solo por categoría (sin búsqueda de texto)
     val filteredDecisions = remember(
         uiState.decisions,
         uiState.categoryFilter
@@ -122,74 +146,54 @@ fun HomeScreen(
                 cardLayoutMode = uiState.cardLayout,
                 onCardLayoutChange = viewModel::updateCardLayout
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onAddDecisionClick,
-                containerColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = "Nueva decisión",
-                    tint = MaterialTheme.colorScheme.onPrimary
-                )
-            }
         }
+        // sin FAB flotante, el botón se integra en el contenido
     ) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Fondo suave con ligero gradiente
+            // Fondo degradado suave
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                MaterialTheme.colorScheme.surface,
-                                MaterialTheme.colorScheme.background
+                                MaterialTheme.colorScheme.background,
+                                MaterialTheme.colorScheme.surface
                             )
                         )
                     )
             )
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+            Column(
+                modifier = Modifier.fillMaxSize()
             ) {
-                // HEADER DE SALUDO
-                item {
-                    HomeGreetingHeader(
-                        userName = uiState.userName
-                    )
-                }
-
-                // Selector de día
-                item {
-                    DaySelectorCard(
+                // FECHA FIJA ARRIBA
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 16.dp)
+                ) {
+                    DateNavigatorRow(
                         formattedDate = formattedDate,
                         isToday = isToday,
+                        canGoBack = canGoBack,
+                        canGoForward = !isToday,
                         onPrevious = viewModel::goToPreviousDay,
                         onNext = viewModel::goToNextDay
                     )
                 }
 
-                // Filtros activos (solo categoría)
-                val hasFilters = uiState.categoryFilter != null
-                if (hasFilters) {
-                    item {
-                        ActiveFiltersRow(
-                            categoryFilter = uiState.categoryFilter,
-                            onClearCategory = { viewModel.updateCategoryFilter(null) }
-                        )
-                    }
-                }
-
-                if (uiState.isLoading) {
-                    item {
+                // CONTENIDO SCROLL: saludo, filtros, decisiones, botón nueva
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                ) {
+                    if (uiState.isLoading) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -198,31 +202,76 @@ fun HomeScreen(
                         ) {
                             CircularProgressIndicator()
                         }
-                    }
-                } else {
-                    if (filteredDecisions.isEmpty()) {
-                        item {
-                            if (uiState.decisions.isEmpty()) {
-                                EmptyDayCard()
-                            } else {
-                                FilteredEmptyState(
-                                    onClearFilters = {
-                                        viewModel.updateCategoryFilter(null)
-                                    }
-                                )
-                            }
-                        }
                     } else {
-                        items(filteredDecisions, key = { it.id }) { decision ->
-                            val isSelected = uiState.selectedForDeletion.contains(decision.id)
-                            DecisionCard(
-                                decision = decision,
-                                isDeleteMode = uiState.isDeleteMode,
-                                isSelected = isSelected,
-                                layoutMode = uiState.cardLayout,
-                                onCardClick = { onDecisionClick(decision.id) },
-                                onToggleSelection = { viewModel.toggleDecisionSelection(decision.id) }
-                            )
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(
+                                horizontal = 20.dp,
+                                vertical = 8.dp
+                            ),
+                            verticalArrangement = Arrangement.spacedBy(18.dp)
+                        ) {
+                            // Saludo + resumen (solo hoy, y ahora dentro del scroll)
+                            if (isToday) {
+                                item {
+                                    GreetingAndSummaryCard(
+                                        userName = uiState.userName,
+                                        formattedSummaryDate = formattedSummaryDate,
+                                        daysUntilSummary = daysUntilSummary,
+                                        onOpenSummaryClick = onOpenSummaryClick
+                                    )
+                                }
+                            }
+
+                            // Filtros (también dentro del scroll)
+                            val hasFilters = uiState.categoryFilter != null
+                            if (hasFilters) {
+                                item {
+                                    ActiveFiltersRow(
+                                        categoryFilter = uiState.categoryFilter,
+                                        onClearCategory = { viewModel.updateCategoryFilter(null) }
+                                    )
+                                }
+                            }
+
+                            // Botón de nueva decisión, integrado en el bloque de decisiones (no en saludo)
+                            if (isToday && !uiState.isDeleteMode) {
+                                item {
+                                    AddDecisionRow(onAddDecisionClick = onAddDecisionClick)
+                                }
+                            }
+
+                            // Contenido: vacío / filtrado / lista de decisiones
+                            if (filteredDecisions.isEmpty()) {
+                                item {
+                                    if (uiState.decisions.isEmpty()) {
+                                        EmptyDayCard(isToday = isToday)
+                                    } else {
+                                        FilteredEmptyState(
+                                            onClearFilters = {
+                                                viewModel.updateCategoryFilter(null)
+                                            }
+                                        )
+                                    }
+                                }
+                            } else {
+                                items(filteredDecisions, key = { it.id }) { decision ->
+                                    val isSelected =
+                                        uiState.selectedForDeletion.contains(decision.id)
+                                    val isReadOnly = !isToday
+                                    DecisionCard(
+                                        decision = decision,
+                                        isDeleteMode = uiState.isDeleteMode,
+                                        isSelected = isSelected,
+                                        isReadOnly = isReadOnly,
+                                        layoutMode = uiState.cardLayout,
+                                        onCardClick = { onDecisionClick(decision.id) },
+                                        onToggleSelection = {
+                                            viewModel.toggleDecisionSelection(decision.id)
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -259,123 +308,178 @@ fun HomeScreen(
     }
 }
 
+// ---------- CABECERA (FECHA / SALUDO / RESUMEN) ----------
+
 @Composable
-private fun HomeGreetingHeader(
-    userName: String?
+private fun DateNavigatorRow(
+    formattedDate: String,
+    isToday: Boolean,
+    canGoBack: Boolean,
+    canGoForward: Boolean,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(
+            onClick = onPrevious,
+            enabled = canGoBack
+        ) {
+            Icon(
+                imageVector = Icons.Filled.ChevronLeft,
+                contentDescription = "Día anterior",
+                tint = if (canGoBack)
+                    MaterialTheme.colorScheme.primary
+                else
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+            )
+        }
+
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = formattedDate,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = if (isToday) "Hoy" else "Histórico",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        IconButton(
+            onClick = onNext,
+            enabled = canGoForward
+        ) {
+            Icon(
+                imageVector = Icons.Filled.ChevronRight,
+                contentDescription = "Día siguiente",
+                tint = if (canGoForward)
+                    MaterialTheme.colorScheme.primary
+                else
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun GreetingAndSummaryCard(
+    userName: String?,
+    formattedSummaryDate: String,
+    daysUntilSummary: Int,
+    onOpenSummaryClick: () -> Unit
 ) {
     val displayName = userName?.takeIf { it.isNotBlank() } ?: "de nuevo"
-    val initial = userName?.firstOrNull()?.uppercaseChar()?.toString() ?: "D"
+
+    val summaryStatusText = when {
+        daysUntilSummary <= 0 -> "Tu resumen semanal está disponible hoy."
+        daysUntilSummary == 1 -> "Tu resumen semanal estará disponible mañana."
+        else -> "Tu resumen semanal estará disponible en $daysUntilSummary días."
+    }
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = MaterialTheme.shapes.large
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+        shape = MaterialTheme.shapes.extraLarge
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+        Column(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "Hola $displayName",
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold)
+                    text = "Hola, $displayName",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium)
                 )
                 Text(
-                    text = "Registra, reflexiona y mejora cada día",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "Apunta tus decisiones importantes y aprende de ellas cada semana",
+                    text = "Organiza tu mundo emocional hoy",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-//            Box(
-//                modifier = Modifier
-//                    .size(44.dp)
-//                    .clip(CircleShape)
-//                    .background(
-//                        Brush.radialGradient(
-//                            colors = listOf(
-//                                MaterialTheme.colorScheme.primary,
-//                                MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-//                            )
-//                        )
-//                    ),
-//                contentAlignment = Alignment.Center
-//            ) {
-//                Text(
-//                    text = initial,
-//                    style = MaterialTheme.typography.titleMedium,
-//                    color = MaterialTheme.colorScheme.onPrimary,
-//                    fontWeight = FontWeight.SemiBold
-//                )
-//            }
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Resumen semanal",
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+                )
+                Text(
+                    text = "Próximo resumen: $formattedSummaryDate",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = summaryStatusText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "Cuantas más decisiones registres esta semana, más completo y útil será tu resumen.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(
+                        onClick = onOpenSummaryClick,
+                        enabled = daysUntilSummary <= 0
+                    ) {
+                        Text("Ver resumen semanal")
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun DaySelectorCard(
-    formattedDate: String,
-    isToday: Boolean,
-    onPrevious: () -> Unit,
-    onNext: () -> Unit
+private fun AddDecisionRow(
+    onAddDecisionClick: () -> Unit
 ) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = MaterialTheme.shapes.large,
-        modifier = Modifier.fillMaxWidth()
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Button(
+            onClick = onAddDecisionClick,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
         ) {
-            IconButton(onClick = onPrevious) {
-                Icon(
-                    imageVector = Icons.Filled.ChevronLeft,
-                    contentDescription = "Día anterior"
-                )
-            }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = formattedDate,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = if (isToday) "Hoy" else "Histórico",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-            IconButton(
-                onClick = onNext,
-                enabled = !isToday
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.ChevronRight,
-                    contentDescription = "Día siguiente"
-                )
-            }
+            Icon(
+                imageVector = Icons.Filled.Add,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text("Nueva decisión")
         }
     }
 }
+
+// ---------- FILTROS / ESTADOS VACÍOS ----------
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -436,7 +540,7 @@ private fun FilteredEmptyState(onClearFilters: () -> Unit) {
 }
 
 @Composable
-private fun EmptyDayCard() {
+private fun EmptyDayCard(isToday: Boolean) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.elevatedCardColors(
@@ -448,17 +552,25 @@ private fun EmptyDayCard() {
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "Hoy aún no has registrado ninguna decisión",
+                text = if (isToday)
+                    "Hoy aún no has registrado ninguna decisión"
+                else
+                    "No hay decisiones registradas en este día",
                 style = MaterialTheme.typography.titleMedium
             )
             Text(
-                text = "Añade una cuando ocurra algo relevante para ti. Tu futuro yo te lo agradecerá.",
+                text = if (isToday)
+                    "Añade una cuando ocurra algo relevante para ti. Tu futuro yo te lo agradecerá."
+                else
+                    "Puedes seguir explorando otros días o volver a hoy.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
 }
+
+// ---------- TOPBAR ----------
 
 @Composable
 private fun HomeTopBar(
@@ -483,7 +595,7 @@ private fun HomeTopBar(
 
     DmoodTopBar(
         title = "D-Mood",
-        subtitle = subtitle ?: "",
+        subtitle = subtitle,
         actions = {
             if (isDeleteMode) {
                 IconButton(onClick = onToggleSelectionMode) {
@@ -502,15 +614,14 @@ private fun HomeTopBar(
                     )
                 }
             } else {
-                // Filtro por categoría
                 IconButton(onClick = { filterMenuExpanded = true }) {
                     Icon(
                         imageVector = Icons.Filled.FilterList,
                         contentDescription = "Filtrar decisiones",
                         tint = if (categoryFilter != null)
-                            MaterialTheme.colorScheme.primary
+                            MaterialTheme.colorScheme.onPrimaryContainer
                         else
-                            MaterialTheme.colorScheme.onSurface
+                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                     )
                 }
                 DropdownMenu(
@@ -562,7 +673,6 @@ private fun HomeTopBar(
                     }
                 }
 
-                // Selector de tamaño de card (lista / normal / grande)
                 IconButton(onClick = { layoutMenuExpanded = true }) {
                     Icon(
                         imageVector = Icons.Filled.ViewAgenda,
@@ -573,40 +683,40 @@ private fun HomeTopBar(
                     expanded = layoutMenuExpanded,
                     onDismissRequest = { layoutMenuExpanded = false }
                 ) {
-                    listOf(COMPACT, COZY, ROOMY).forEach { mode ->
-                        DropdownMenuItem(
-                            text = {
-                                Column {
-                                    Text(
-                                        mode.label,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                    Text(
-                                        text = mode.description,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
+                    listOf(CardLayoutMode.COMPACT, CardLayoutMode.COZY, CardLayoutMode.ROOMY)
+                        .forEach { mode ->
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text(
+                                            mode.label,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Text(
+                                            text = mode.description,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    layoutMenuExpanded = false
+                                    onCardLayoutChange(mode)
+                                },
+                                trailingIcon = {
+                                    if (cardLayoutMode == mode) {
+                                        Icon(
+                                            imageVector = Icons.Filled.CheckCircle,
+                                            contentDescription = null
+                                        )
+                                    }
                                 }
-                            },
-                            onClick = {
-                                layoutMenuExpanded = false
-                                onCardLayoutChange(mode)
-                            },
-                            trailingIcon = {
-                                if (cardLayoutMode == mode) {
-                                    Icon(
-                                        imageVector = Icons.Filled.CheckCircle,
-                                        contentDescription = null
-                                    )
-                                }
-                            }
-                        )
-                    }
+                            )
+                        }
                 }
 
-                // Entrada en modo selección desde el TopBar
                 IconButton(onClick = onToggleSelectionMode) {
                     Icon(
                         imageVector = Icons.Filled.CheckCircle,
@@ -614,9 +724,12 @@ private fun HomeTopBar(
                     )
                 }
             }
-        }
+        },
+        showLogo = true
     )
 }
+
+// ---------- CARDS DE DECISIÓN ----------
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -624,6 +737,7 @@ private fun DecisionCard(
     decision: Decision,
     isDeleteMode: Boolean,
     isSelected: Boolean,
+    isReadOnly: Boolean,
     layoutMode: CardLayoutMode,
     onCardClick: () -> Unit,
     onToggleSelection: () -> Unit
@@ -637,18 +751,30 @@ private fun DecisionCard(
         else -> Color(0xFFC8E6C9)
     }
 
-    val clickAction = if (isDeleteMode) onToggleSelection else onCardClick
     val metrics = remember(layoutMode) { layoutMode.metrics() }
+
+    val enabledClick = isDeleteMode || !isReadOnly
+    val clickAction: () -> Unit = when {
+        isDeleteMode -> onToggleSelection
+        isReadOnly -> ({})
+        else -> onCardClick
+    }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = clickAction),
+            .clickable(
+                enabled = enabledClick,
+                onClick = clickAction
+            ),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected && isDeleteMode) {
-                MaterialTheme.colorScheme.surfaceVariant
-            } else {
-                MaterialTheme.colorScheme.surface
+            containerColor = when {
+                isSelected && isDeleteMode ->
+                    MaterialTheme.colorScheme.surfaceVariant
+                isReadOnly ->
+                    MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                else ->
+                    MaterialTheme.colorScheme.surface
             }
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
@@ -682,13 +808,11 @@ private fun DecisionCard(
                 overflow = TextOverflow.Ellipsis
             )
 
-            // Modo NORMAL / GRANDE muestran categoría
-            if (layoutMode != COMPACT) {
+            if (layoutMode != CardLayoutMode.COMPACT) {
                 CategoryTag(category = decision.category)
             }
 
-            // Solo en modo GRANDE mostramos emociones + intensidad
-            if (layoutMode == ROOMY) {
+            if (layoutMode == CardLayoutMode.ROOMY) {
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -723,6 +847,20 @@ private fun DecisionCard(
                             disabledLabelColor = Color.Black
                         )
                     )
+
+                    if (isReadOnly) {
+                        AssistChip(
+                            onClick = {},
+                            enabled = false,
+                            label = { Text("Solo lectura") },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Filled.Lock,
+                                    contentDescription = null
+                                )
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -751,28 +889,68 @@ private data class DecisionCardMetrics(
     val titleLines: Int
 )
 
-// COMPACT = solo texto
-// COZY = texto + categoría
-// ROOMY = texto + categoría + emociones + intensidad
 private fun CardLayoutMode.metrics(): DecisionCardMetrics = when (this) {
-    COMPACT -> DecisionCardMetrics(
+    CardLayoutMode.COMPACT -> DecisionCardMetrics(
         horizontalPadding = 16.dp,
         verticalPadding = 12.dp,
         verticalSpacing = 8.dp,
         titleLines = 2
     )
 
-    COZY -> DecisionCardMetrics(
+    CardLayoutMode.COZY -> DecisionCardMetrics(
         horizontalPadding = 20.dp,
         verticalPadding = 16.dp,
         verticalSpacing = 10.dp,
         titleLines = 3
     )
 
-    ROOMY -> DecisionCardMetrics(
+    CardLayoutMode.ROOMY -> DecisionCardMetrics(
         horizontalPadding = 24.dp,
         verticalPadding = 20.dp,
         verticalSpacing = 12.dp,
         titleLines = 4
     )
+}
+
+// ---------- PREVIEW ----------
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun HomeScreenPreview() {
+    val locale = Locale("es", "ES")
+    val dayFormatter = DateTimeFormatter.ofPattern("EEEE, dd/MM", locale)
+    val today = LocalDate.now()
+    val formattedDate = today.format(dayFormatter).replaceFirstChar { ch ->
+        if (ch.isLowerCase()) ch.titlecase(locale) else ch.toString()
+    }
+
+    MaterialTheme {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            DateNavigatorRow(
+                formattedDate = formattedDate,
+                isToday = true,
+                canGoBack = false,
+                canGoForward = false,
+                onPrevious = {},
+                onNext = {}
+            )
+
+            GreetingAndSummaryCard(
+                userName = "Alex",
+                formattedSummaryDate = "Domingo 24 de noviembre",
+                daysUntilSummary = 2,
+                onOpenSummaryClick = {}
+            )
+
+            AddDecisionRow(onAddDecisionClick = {})
+
+            EmptyDayCard(isToday = true)
+        }
+    }
 }
