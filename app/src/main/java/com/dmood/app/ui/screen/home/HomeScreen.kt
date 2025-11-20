@@ -627,26 +627,28 @@ private fun DecisionOverviewSlide(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            PillStat(
-                modifier = Modifier.weight(1f),
-                label = "Activas",
-                value = decisionCount,
-                accent = MaterialTheme.colorScheme.primary
-            )
-            PillStat(
-                modifier = Modifier.weight(1f),
-                label = "Jornada",
-                value = totalDecisions,
-                accent = MaterialTheme.colorScheme.secondary
-            )
+            Box(modifier = Modifier.weight(1f)) {
+                PillStat(
+                    label = "Activas",
+                    value = decisionCount,
+                    accent = MaterialTheme.colorScheme.primary
+                )
+            }
+            Box(modifier = Modifier.weight(1f)) {
+                PillStat(
+                    label = "Jornada",
+                    value = totalDecisions,
+                    accent = MaterialTheme.colorScheme.secondary
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun PillStat(modifier: Modifier, label: String, value: Int, accent: Color) {
+private fun PillStat(label: String, value: Int, accent: Color) {
     Column(
-        modifier = modifier
+        modifier = Modifier
             .clip(MaterialTheme.shapes.large)
             .background(accent.copy(alpha = 0.12f))
             .padding(horizontal = 16.dp, vertical = 12.dp),
