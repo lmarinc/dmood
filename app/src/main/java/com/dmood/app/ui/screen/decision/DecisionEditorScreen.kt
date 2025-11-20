@@ -584,6 +584,12 @@ private fun EmotionItem(
         label = "emotion-scale"
     )
     val interactionSource = remember { MutableInteractionSource() }
+    
+    val textColor = if (emotion == EmotionType.MIEDO && isSelected) {
+        Color.White
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
 
     Box(
         modifier = Modifier
@@ -614,7 +620,8 @@ private fun EmotionItem(
             style = MaterialTheme.typography.labelSmall,
             textAlign = TextAlign.Center,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis,
+            color = textColor
         )
     }
 }

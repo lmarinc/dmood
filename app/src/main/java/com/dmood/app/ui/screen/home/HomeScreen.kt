@@ -152,7 +152,12 @@ fun HomeScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .padding(
+                    top = innerPadding.calculateTopPadding(),
+                    bottom = 0.dp,    // ← FIX REAL
+                    start = 0.dp,
+                    end = 0.dp
+                )
         ) {
             // Fondo degradado suave
             Box(
@@ -162,6 +167,7 @@ fun HomeScreen(
                         Brush.verticalGradient(
                             colors = listOf(
                                 MaterialTheme.colorScheme.background,
+                                MaterialTheme.colorScheme.surface,
                                 MaterialTheme.colorScheme.surface
                             )
                         )
@@ -187,7 +193,7 @@ fun HomeScreen(
                     )
                 }
 
-                // CONTENIDO SCROLL: saludo, filtros, decisiones, botón nueva
+                // CONTENIDO SCROLL: saludo, filtros, card de decisiones
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -234,42 +240,78 @@ fun HomeScreen(
                                 }
                             }
 
-                            // Botón de nueva decisión, integrado en el bloque de decisiones (no en saludo)
-                            if (isToday && !uiState.isDeleteMode) {
-                                item {
-                                    AddDecisionRow(onAddDecisionClick = onAddDecisionClick)
-                                }
-                            }
+                            // Card contenedora de decisiones y botón "+"
+                            item {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = MaterialTheme.shapes.extraLarge,
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surface
+                                    ),
+                                    elevation = CardDefaults.cardElevation(8.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(20.dp),
+                                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                                    ) {
 
-                            // Contenido: vacío / filtrado / lista de decisiones
-                            if (filteredDecisions.isEmpty()) {
-                                item {
-                                    if (uiState.decisions.isEmpty()) {
-                                        EmptyDayCard(isToday = isToday)
-                                    } else {
-                                        FilteredEmptyState(
-                                            onClearFilters = {
-                                                viewModel.updateCategoryFilter(null)
+                                        // Botón "+" integrado en la card
+                                        if (isToday && !uiState.isDeleteMode) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.End
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(52.dp)
+                                                        .clip(CircleShape)
+                                                        .background(MaterialTheme.colorScheme.primary)
+                                                        .clickable { onAddDecisionClick() },
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text(
+                                                        text = "+",
+                                                        color = MaterialTheme.colorScheme.onPrimary,
+                                                        style = MaterialTheme.typography.titleLarge,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
                                             }
-                                        )
-                                    }
-                                }
-                            } else {
-                                items(filteredDecisions, key = { it.id }) { decision ->
-                                    val isSelected =
-                                        uiState.selectedForDeletion.contains(decision.id)
-                                    val isReadOnly = !isToday
-                                    DecisionCard(
-                                        decision = decision,
-                                        isDeleteMode = uiState.isDeleteMode,
-                                        isSelected = isSelected,
-                                        isReadOnly = isReadOnly,
-                                        layoutMode = uiState.cardLayout,
-                                        onCardClick = { onDecisionClick(decision.id) },
-                                        onToggleSelection = {
-                                            viewModel.toggleDecisionSelection(decision.id)
                                         }
-                                    )
+
+                                        // Contenido: vacío / filtrado / lista de decisiones
+                                        if (filteredDecisions.isEmpty()) {
+                                            if (uiState.decisions.isEmpty()) {
+                                                EmptyDayCard(isToday = isToday)
+                                            } else {
+                                                FilteredEmptyState(
+                                                    onClearFilters = {
+                                                        viewModel.updateCategoryFilter(null)
+                                                    }
+                                                )
+                                            }
+                                        } else {
+                                            filteredDecisions.forEach { decision ->
+                                                val isSelected =
+                                                    uiState.selectedForDeletion.contains(decision.id)
+                                                val isReadOnly = !isToday
+
+                                                DecisionCard(
+                                                    decision = decision,
+                                                    isDeleteMode = uiState.isDeleteMode,
+                                                    isSelected = isSelected,
+                                                    isReadOnly = isReadOnly,
+                                                    layoutMode = uiState.cardLayout,
+                                                    onCardClick = { onDecisionClick(decision.id) },
+                                                    onToggleSelection = {
+                                                        viewModel.toggleDecisionSelection(decision.id)
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -451,35 +493,6 @@ private fun GreetingAndSummaryCard(
         }
     }
 }
-
-@Composable
-private fun AddDecisionRow(
-    onAddDecisionClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.End,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Button(
-            onClick = onAddDecisionClick,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            )
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Add,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("Nueva decisión")
-        }
-    }
-}
-
-// ---------- FILTROS / ESTADOS VACÍOS ----------
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -910,47 +923,4 @@ private fun CardLayoutMode.metrics(): DecisionCardMetrics = when (this) {
         verticalSpacing = 12.dp,
         titleLines = 4
     )
-}
-
-// ---------- PREVIEW ----------
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-private fun HomeScreenPreview() {
-    val locale = Locale("es", "ES")
-    val dayFormatter = DateTimeFormatter.ofPattern("EEEE, dd/MM", locale)
-    val today = LocalDate.now()
-    val formattedDate = today.format(dayFormatter).replaceFirstChar { ch ->
-        if (ch.isLowerCase()) ch.titlecase(locale) else ch.toString()
-    }
-
-    MaterialTheme {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            DateNavigatorRow(
-                formattedDate = formattedDate,
-                isToday = true,
-                canGoBack = false,
-                canGoForward = false,
-                onPrevious = {},
-                onNext = {}
-            )
-
-            GreetingAndSummaryCard(
-                userName = "Alex",
-                formattedSummaryDate = "Domingo 24 de noviembre",
-                daysUntilSummary = 2,
-                onOpenSummaryClick = {}
-            )
-
-            AddDecisionRow(onAddDecisionClick = {})
-
-            EmptyDayCard(isToday = true)
-        }
-    }
 }
