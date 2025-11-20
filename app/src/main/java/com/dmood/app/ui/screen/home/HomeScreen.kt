@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -629,11 +628,13 @@ private fun DecisionOverviewSlide(
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             PillStat(
+                modifier = Modifier.weight(1f),
                 label = "Activas",
                 value = decisionCount,
                 accent = MaterialTheme.colorScheme.primary
             )
             PillStat(
+                modifier = Modifier.weight(1f),
                 label = "Jornada",
                 value = totalDecisions,
                 accent = MaterialTheme.colorScheme.secondary
@@ -643,10 +644,9 @@ private fun DecisionOverviewSlide(
 }
 
 @Composable
-private fun RowScope.PillStat(label: String, value: Int, accent: Color) {
+private fun PillStat(modifier: Modifier, label: String, value: Int, accent: Color) {
     Column(
-        modifier = Modifier
-            .weight(1f)
+        modifier = modifier
             .clip(MaterialTheme.shapes.large)
             .background(accent.copy(alpha = 0.12f))
             .padding(horizontal = 16.dp, vertical = 12.dp),
