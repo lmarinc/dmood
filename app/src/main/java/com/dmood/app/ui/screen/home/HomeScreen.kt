@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -642,7 +643,7 @@ private fun DecisionOverviewSlide(
 }
 
 @Composable
-private fun PillStat(label: String, value: Int, accent: Color) {
+private fun RowScope.PillStat(label: String, value: Int, accent: Color) {
     Column(
         modifier = Modifier
             .weight(1f)
