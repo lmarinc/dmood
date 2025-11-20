@@ -1,23 +1,26 @@
 package com.dmood.app.ui.screen.decision
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,8 +29,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -40,47 +41,50 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.material.ripple.rememberRipple
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dmood.app.domain.model.CategoryType
 import com.dmood.app.domain.model.EmotionType
 import com.dmood.app.ui.DmoodViewModelFactory
+import com.dmood.app.ui.theme.DmoodTheme
 import com.dmood.app.ui.theme.toUiColor
 import kotlin.math.roundToInt
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
+@OptIn(
+    ExperimentalMaterial3Api::class,
+    ExperimentalFoundationApi::class,
+    ExperimentalAnimationApi::class
+)
 @Composable
 fun DecisionEditorScreen(
     decisionId: Long = 0L,
     onClose: () -> Unit,
-    onSaved: () -> Unit = {}, // callback añadido
+    onSaved: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: DecisionEditorViewModel = viewModel(factory = DmoodViewModelFactory)
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
     val focusManager = LocalFocusManager.current
-    var showDeleteDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(decisionId) {
         if (decisionId > 0) {
@@ -91,7 +95,7 @@ fun DecisionEditorScreen(
     LaunchedEffect(uiState.savedSuccessfully) {
         if (uiState.savedSuccessfully) {
             viewModel.resetSavedFlag()
-            onSaved()   // notifico que se guardó
+            onSaved()
             onClose()
         }
     }
@@ -100,10 +104,32 @@ fun DecisionEditorScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text(if (uiState.isEditing) "Editar decisión" else "Nueva decisión") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
+                ),
+                title = {
+                    Column {
+                        Text(
+                            text = if (uiState.isEditing) "Editar decisión" else "Nueva decisión",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        )
+                        Text(
+                            text = "Paso ${uiState.currentStep} de 3",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onClose) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Cerrar"
+                        )
                     }
                 }
             )
@@ -125,35 +151,56 @@ fun DecisionEditorScreen(
                     .padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                StepIndicator(currentStep = uiState.currentStep)
-                when (uiState.currentStep) {
-                    1 -> StepOne(
-                        text = uiState.text,
-                        onTextChange = viewModel::onTextChange,
-                        onNext = viewModel::goToNextStep
-                    )
+                AnimatedContent(
+                    targetState = uiState.currentStep,
+                    transitionSpec = {
+                        if (targetState > initialState) {
+                            slideInHorizontally(
+                                initialOffsetX = { it },
+                                animationSpec = tween(320)
+                            ) togetherWith slideOutHorizontally(
+                                targetOffsetX = { -it / 2 },
+                                animationSpec = tween(320)
+                            )
+                        } else {
+                            slideInHorizontally(
+                                initialOffsetX = { -it },
+                                animationSpec = tween(320)
+                            ) togetherWith slideOutHorizontally(
+                                targetOffsetX = { it / 2 },
+                                animationSpec = tween(320)
+                            )
+                        }
+                    },
+                    label = "step-animation"
+                ) { step ->
+                    when (step) {
+                        1 -> StepOne(
+                            text = uiState.text,
+                            onTextChange = viewModel::onTextChange,
+                            onNext = viewModel::goToNextStep
+                        )
 
-                    2 -> StepTwo(
-                        selected = uiState.selectedEmotions,
-                        onToggleEmotion = viewModel::onToggleEmotion,
-                        intensity = uiState.intensity,
-                        onIntensityChange = viewModel::onIntensityChange,
-                        onNext = viewModel::goToNextStep,
-                        onBack = viewModel::goToPreviousStep
-                    )
+                        2 -> StepTwo(
+                            selected = uiState.selectedEmotions,
+                            onToggleEmotion = viewModel::onToggleEmotion,
+                            intensity = uiState.intensity,
+                            onIntensityChange = viewModel::onIntensityChange,
+                            onNext = viewModel::goToNextStep,
+                            onBack = viewModel::goToPreviousStep
+                        )
 
-                    3 -> StepThree(
-                        category = uiState.category,
-                        onCategoryChange = viewModel::onCategoryChange,
-                        summaryText = uiState.text,
-                        emotions = uiState.selectedEmotions,
-                        intensity = uiState.intensity,
-                        onBack = viewModel::goToPreviousStep,
-                        onSave = viewModel::saveDecision,
-                        isSaving = uiState.isSaving,
-                        onDelete = { showDeleteDialog = true },
-                        canDelete = uiState.isEditing
-                    )
+                        3 -> StepThree(
+                            category = uiState.category,
+                            onCategoryChange = viewModel::onCategoryChange,
+                            summaryText = uiState.text,
+                            emotions = uiState.selectedEmotions,
+                            intensity = uiState.intensity,
+                            onBack = viewModel::goToPreviousStep,
+                            onSave = viewModel::saveDecision,
+                            isSaving = uiState.isSaving
+                        )
+                    }
                 }
 
                 if (uiState.validationError != null) {
@@ -166,95 +213,6 @@ fun DecisionEditorScreen(
             }
         }
     }
-
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("¿Borrar esta decisión?") },
-            text = { Text("La decisión desaparecerá del registro de forma permanente.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showDeleteDialog = false
-                    viewModel.deleteCurrentDecision()
-                    onSaved()   // notifico que hubo un cambio (eliminar)
-                    onClose()
-                }) {
-                    Text("Borrar")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancelar")
-                }
-            }
-        )
-    }
-}
-
-@Composable
-private fun StepIndicator(currentStep: Int) {
-    val steps = listOf(
-        "Contexto",
-        "Emociones",
-        "Categoría"
-    )
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        steps.forEachIndexed { index, label ->
-            val stepNumber = index + 1
-            val isActive = currentStep >= stepNumber
-            val isCurrent = currentStep == stepNumber
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.weight(1f)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = stepNumber.toString(),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = if (isActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    if (index != steps.lastIndex) {
-                        Box(
-                            modifier = Modifier
-                                .padding(horizontal = 6.dp)
-                                .height(2.dp)
-                                .weight(1f)
-                                .background(
-                                    if (currentStep > stepNumber) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-                                )
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (isCurrent) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
-    }
 }
 
 @Composable
@@ -264,14 +222,20 @@ private fun StepOne(
     onNext: () -> Unit
 ) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        modifier = Modifier.fillMaxWidth()
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(text = "Paso 1 · Contexto", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = "Contexto",
+                style = MaterialTheme.typography.titleMedium
+            )
             Text(
                 text = "Describe la decisión o momento que quieres registrar.",
                 style = MaterialTheme.typography.bodyMedium,
@@ -281,8 +245,11 @@ private fun StepOne(
                 value = text,
                 onValueChange = onTextChange,
                 placeholder = { Text("Ej. Acepté una nueva propuesta de trabajo") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 96.dp, max = 180.dp),
                 maxLines = 5,
-                modifier = Modifier.fillMaxWidth()
+                shape = MaterialTheme.shapes.large
             )
             Button(
                 onClick = onNext,
@@ -295,7 +262,6 @@ private fun StepOne(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun StepTwo(
     selected: Set<EmotionType>,
@@ -305,27 +271,41 @@ private fun StepTwo(
     onNext: () -> Unit,
     onBack: () -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
         Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            modifier = Modifier.fillMaxWidth()
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large
         ) {
             Column(
                 modifier = Modifier.padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(text = "Paso 2 · Emociones", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text = "Emociones",
+                    style = MaterialTheme.typography.titleMedium
+                )
                 Text(
                     text = "Elige hasta dos emociones. Toca sobre el círculo para activarlas.",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                EmotionWheel(selected = selected, onToggleEmotion = onToggleEmotion)
+                EmotionGrid(
+                    selected = selected,
+                    onToggleEmotion = onToggleEmotion
+                )
             }
         }
         Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            modifier = Modifier.fillMaxWidth()
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            ),
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large
         ) {
             Column(
                 modifier = Modifier.padding(20.dp),
@@ -338,14 +318,20 @@ private fun StepTwo(
                     valueRange = 1f..5f,
                     steps = 3
                 )
-                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Text("1 · Suave")
                     Text("3 · Media")
                     Text("5 · Intensa")
                 }
             }
         }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f)) {
                 Text("Atrás")
             }
@@ -356,7 +342,6 @@ private fun StepTwo(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StepThree(
     category: CategoryType?,
@@ -366,21 +351,30 @@ private fun StepThree(
     intensity: Int,
     onBack: () -> Unit,
     onSave: () -> Unit,
-    isSaving: Boolean,
-    onDelete: () -> Unit,
-    canDelete: Boolean
+    isSaving: Boolean
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
         Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            modifier = Modifier.fillMaxWidth()
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large
         ) {
             Column(
                 modifier = Modifier.padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(text = "Paso 3 · Categoría", style = MaterialTheme.typography.titleMedium)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Categoría",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                androidx.compose.foundation.layout.FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     CategoryType.values().forEach { type ->
                         val selected = type == category
                         CategoryChip(
@@ -394,24 +388,54 @@ private fun StepThree(
             }
         }
         Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            modifier = Modifier.fillMaxWidth()
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            ),
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large
         ) {
             Column(
                 modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(text = "Resumen rápido", style = MaterialTheme.typography.titleMedium)
-                Text(text = summaryText.ifBlank { "Aún sin descripción" }, style = MaterialTheme.typography.bodyMedium)
                 Text(
-                    text = "Emociones: ${if (emotions.isEmpty()) "Sin seleccionar" else emotions.joinToString { it.displayName }}",
-                    style = MaterialTheme.typography.bodyMedium
+                    text = "Resumen rápido",
+                    style = MaterialTheme.typography.titleMedium
                 )
-                Text(text = "Intensidad: $intensity/5", style = MaterialTheme.typography.bodyMedium)
-                Text(text = "Categoría: ${category?.displayName ?: "Sin definir"}", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text = summaryText.ifBlank { "Aún sin descripción" },
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    InfoPill(
+                        label = "Emociones",
+                        value = if (emotions.isEmpty())
+                            "Sin seleccionar"
+                        else
+                            emotions.joinToString { it.displayName }
+                    )
+                    InfoPill(
+                        label = "Intensidad",
+                        value = "$intensity / 5"
+                    )
+                    InfoPill(
+                        label = "Categoría",
+                        value = category?.displayName ?: "Sin definir"
+                    )
+                }
             }
         }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f)) {
                 Text("Atrás")
             }
@@ -423,16 +447,40 @@ private fun StepThree(
                 Text(if (isSaving) "Guardando…" else "Guardar")
             }
         }
-        if (canDelete) {
-            TextButton(onClick = onDelete, modifier = Modifier.align(Alignment.End)) {
-                Icon(imageVector = Icons.Filled.Delete, contentDescription = null)
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Borrar decisión")
-            }
-        }
     }
 }
 
+@Composable
+private fun InfoPill(
+    label: String,
+    value: String
+) {
+    Column(
+        modifier = Modifier
+            .background(
+                color = MaterialTheme.colorScheme.surface,
+                shape = MaterialTheme.shapes.large
+            )
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f),
+                shape = MaterialTheme.shapes.large
+            )
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
 
 @Composable
 private fun CategoryChip(
@@ -454,9 +502,14 @@ private fun CategoryChip(
         modifier = Modifier
             .clip(MaterialTheme.shapes.large)
             .background(backgroundColor)
-            .border(width = if (selected) 1.5.dp else 1.dp, color = borderColor, shape = MaterialTheme.shapes.large)
+            .border(
+                width = if (selected) 1.5.dp else 1.dp,
+                color = borderColor,
+                shape = MaterialTheme.shapes.large
+            )
             .clickable(
                 interactionSource = interactionSource,
+                indication = ripple(bounded = true),
                 onClick = onClick
             )
             .padding(horizontal = 18.dp, vertical = 10.dp)
@@ -469,55 +522,45 @@ private fun CategoryChip(
     }
 }
 
+/**
+ * Emociones organizadas de forma más estética:
+ *
+ * Fila 1: Alegre – Motivado – Sorprendido
+ * Fila 2: Seguro – Normal – Miedo
+ * Fila 3: Triste – Incómodo – Enfadado
+ */
 @Composable
-private fun EmotionWheel(
+private fun EmotionGrid(
     selected: Set<EmotionType>,
     onToggleEmotion: (EmotionType) -> Unit
 ) {
-    val layout = listOf(
-        listOf(EmotionType.ALEGRE, EmotionType.SORPRENDIDO, EmotionType.MOTIVADO),
+    val rows: List<List<EmotionType>> = listOf(
+        listOf(EmotionType.ALEGRE, EmotionType.MOTIVADO, EmotionType.SORPRENDIDO),
         listOf(EmotionType.SEGURO, EmotionType.NORMAL, EmotionType.MIEDO),
         listOf(EmotionType.TRISTE, EmotionType.INCOMODO, EmotionType.ENFADADO)
     )
-    BoxWithConstraints(
-        modifier = Modifier.fillMaxWidth(),
-        contentAlignment = Alignment.Center
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        val diameter = minOf(maxWidth, 320.dp)
-        Box(
-            modifier = Modifier
-                .size(diameter)
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.surfaceVariant,
-                            MaterialTheme.colorScheme.surface
-                        )
-                    )
-                )
-                .padding(18.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.SpaceEvenly,
-                horizontalAlignment = Alignment.CenterHorizontally
+        rows.forEachIndexed { rowIndex, rowEmotions ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                layout.forEachIndexed { index, rowEmotions ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        rowEmotions.forEach { emotion ->
-                            EmotionItem(
-                                emotion = emotion,
-                                isCentral = emotion == EmotionType.NORMAL && index == 1,
-                                isSelected = selected.contains(emotion),
-                                onToggleEmotion = onToggleEmotion
-                            )
-                        }
-                    }
+                rowEmotions.forEach { emotion ->
+                    val isCentral = (rowIndex == 1 && emotion == EmotionType.NORMAL)
+                    EmotionItem(
+                        emotion = emotion,
+                        isCentral = isCentral,
+                        isSelected = selected.contains(emotion),
+                        onToggleEmotion = onToggleEmotion
+                    )
                 }
             }
         }
@@ -531,14 +574,27 @@ private fun EmotionItem(
     isSelected: Boolean,
     onToggleEmotion: (EmotionType) -> Unit
 ) {
-    val targetColor = if (isSelected) emotion.color else emotion.color.copy(alpha = 0.45f)
-    val backgroundColor by animateColorAsState(targetValue = targetColor, label = "emotion-color")
-    val scale by animateFloatAsState(targetValue = if (isSelected) 1.1f else 1f, label = "emotion-scale")
+    val targetColor = if (isSelected) emotion.color else emotion.color.copy(alpha = 0.40f)
+    val backgroundColor by animateColorAsState(
+        targetValue = targetColor,
+        label = "emotion-color"
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected) 1.10f else 1f,
+        label = "emotion-scale"
+    )
     val interactionSource = remember { MutableInteractionSource() }
+
     Box(
         modifier = Modifier
-            .size(if (isCentral) 90.dp else 64.dp)
+            .size(if (isCentral) 95.dp else 75.dp)
             .graphicsLayer(scaleX = scale, scaleY = scale)
+            .shadow(
+                elevation = if (isSelected) 14.dp else 6.dp,
+                shape = CircleShape,
+                ambientColor = emotion.color.copy(alpha = 0.35f),
+                spotColor = emotion.color.copy(alpha = 0.45f)
+            )
             .clip(CircleShape)
             .background(backgroundColor)
             .border(
@@ -548,6 +604,7 @@ private fun EmotionItem(
             )
             .clickable(
                 interactionSource = interactionSource,
+                indication = ripple(bounded = true),
                 onClick = { onToggleEmotion(emotion) }
             ),
         contentAlignment = Alignment.Center
@@ -555,7 +612,26 @@ private fun EmotionItem(
         Text(
             text = emotion.displayName,
             style = MaterialTheme.typography.labelSmall,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun StepTwoPreview() {
+    DmoodTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            StepTwo(
+                selected = setOf(EmotionType.ALEGRE, EmotionType.MIEDO),
+                onToggleEmotion = {},
+                intensity = 3,
+                onIntensityChange = {},
+                onNext = {},
+                onBack = {}
+            )
+        }
     }
 }
