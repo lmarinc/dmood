@@ -9,6 +9,7 @@ import com.dmood.app.domain.repository.DecisionRepository
 import com.dmood.app.domain.usecase.BuildWeeklySummaryUseCase
 import com.dmood.app.domain.usecase.CalculateDailyMoodUseCase
 import com.dmood.app.domain.usecase.CalculateDecisionToneUseCase
+import com.dmood.app.domain.usecase.CalculateSummaryScheduleUseCase
 import com.dmood.app.domain.usecase.ExtractWeeklyHighlightsUseCase
 import com.dmood.app.domain.usecase.ValidateDecisionUseCase
 
@@ -52,6 +53,10 @@ object DmoodServiceLocator {
 
     val extractWeeklyHighlightsUseCase: ExtractWeeklyHighlightsUseCase by lazy {
         ExtractWeeklyHighlightsUseCase()
+    }
+
+    val calculateSummaryScheduleUseCase: CalculateSummaryScheduleUseCase by lazy {
+        CalculateSummaryScheduleUseCase()
     }
 
     fun init(context: Context) {

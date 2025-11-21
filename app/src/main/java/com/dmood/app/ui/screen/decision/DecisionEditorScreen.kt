@@ -4,7 +4,10 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -154,22 +157,27 @@ fun DecisionEditorScreen(
                 AnimatedContent(
                     targetState = uiState.currentStep,
                     transitionSpec = {
+                        val slideSpec = spring(dampingRatio = 0.78f, stiffness = 280f)
                         if (targetState > initialState) {
-                            slideInHorizontally(
-                                initialOffsetX = { it },
-                                animationSpec = tween(320)
-                            ) togetherWith slideOutHorizontally(
-                                targetOffsetX = { -it / 2 },
-                                animationSpec = tween(320)
-                            )
+                            (slideInHorizontally(
+                                initialOffsetX = { it / 3 },
+                                animationSpec = slideSpec
+                            ) + fadeIn(tween(180))) togetherWith (
+                                slideOutHorizontally(
+                                    targetOffsetX = { -it / 4 },
+                                    animationSpec = slideSpec
+                                ) + fadeOut(tween(150))
+                                )
                         } else {
-                            slideInHorizontally(
-                                initialOffsetX = { -it },
-                                animationSpec = tween(320)
-                            ) togetherWith slideOutHorizontally(
-                                targetOffsetX = { it / 2 },
-                                animationSpec = tween(320)
-                            )
+                            (slideInHorizontally(
+                                initialOffsetX = { -it / 3 },
+                                animationSpec = slideSpec
+                            ) + fadeIn(tween(180))) togetherWith (
+                                slideOutHorizontally(
+                                    targetOffsetX = { it / 4 },
+                                    animationSpec = slideSpec
+                                ) + fadeOut(tween(150))
+                                )
                         }
                     },
                     label = "step-animation"

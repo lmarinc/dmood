@@ -3,6 +3,7 @@ package com.dmood.app.ui.screen.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dmood.app.data.preferences.UserPreferencesRepository
+import java.time.DayOfWeek
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -12,7 +13,8 @@ data class SettingsUiState(
     val editedName: String = "",
     val isSaving: Boolean = false,
     val feedbackMessage: String? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val startOfWeek: DayOfWeek = DayOfWeek.MONDAY
 )
 
 class SettingsViewModel(
@@ -24,6 +26,7 @@ class SettingsViewModel(
 
     init {
         loadCurrentName()
+        observeStartOfWeek()
     }
 
     private fun loadCurrentName() {
@@ -33,6 +36,14 @@ class SettingsViewModel(
                 currentName = name,
                 editedName = name
             )
+        }
+    }
+
+    private fun observeStartOfWeek() {
+        viewModelScope.launch {
+            userPreferencesRepository.startOfWeekFlow.collect { day ->
+                _uiState.value = _uiState.value.copy(startOfWeek = day)
+            }
         }
     }
 
@@ -74,5 +85,12 @@ class SettingsViewModel(
 
     fun clearFeedback() {
         _uiState.value = _uiState.value.copy(feedbackMessage = null)
+    }
+
+    fun onStartOfWeekSelected(day: DayOfWeek) {
+        _uiState.value = _uiState.value.copy(startOfWeek = day)
+        viewModelScope.launch {
+            userPreferencesRepository.setStartOfWeek(day)
+        }
     }
 }

@@ -6,6 +6,8 @@ import com.dmood.app.data.preferences.UserPreferencesRepository
 import com.dmood.app.domain.model.CategoryType
 import com.dmood.app.domain.model.Decision
 import com.dmood.app.domain.repository.DecisionRepository
+import com.dmood.app.domain.usecase.CalculateSummaryScheduleUseCase
+import com.dmood.app.domain.usecase.SummarySchedule
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -24,7 +26,10 @@ data class HomeUiState(
     val searchQuery: String = "",
     val categoryFilter: CategoryType? = null,
     val cardLayout: CardLayoutMode = CardLayoutMode.COZY,
-    val minAvailableDate: LocalDate = LocalDate.now()
+    val minAvailableDate: LocalDate = LocalDate.now(),
+    val startOfWeek: java.time.DayOfWeek = java.time.DayOfWeek.MONDAY,
+    val firstUsageDate: LocalDate = LocalDate.now(),
+    val summarySchedule: SummarySchedule? = null
 )
 
 enum class CardLayoutMode(val label: String, val description: String) {
@@ -35,7 +40,8 @@ enum class CardLayoutMode(val label: String, val description: String) {
 
 class HomeViewModel(
     private val decisionRepository: DecisionRepository,
-    private val userPreferencesRepository: UserPreferencesRepository
+    private val userPreferencesRepository: UserPreferencesRepository,
+    private val calculateSummaryScheduleUseCase: CalculateSummaryScheduleUseCase
 ) : ViewModel() {
 
     private val zoneId: ZoneId = ZoneId.systemDefault()
@@ -45,7 +51,10 @@ class HomeViewModel(
 
     init {
         observeUserName()
+        observeStartOfWeek()
+        observeCardLayout()
         loadMinAvailableDate()
+        ensureFirstUsageDate()
         observeDecisionsForCurrentDay()
     }
 
@@ -70,7 +79,55 @@ class HomeViewModel(
             } ?: LocalDate.now()
 
             _uiState.update { it.copy(minAvailableDate = minDate) }
+
+            // Usa la fecha más temprana para fijar el primer uso en preferencias si aplica
+            userPreferencesRepository.updateFirstUsageDateIfEarlier(minDate)
+            val ensured = userPreferencesRepository.ensureFirstUsageDate(minDate)
+            _uiState.update { it.copy(firstUsageDate = ensured) }
+            refreshSummarySchedule()
         }
+    }
+
+    private fun observeStartOfWeek() {
+        viewModelScope.launch {
+            userPreferencesRepository.startOfWeekFlow.collect { startDay ->
+                _uiState.update {
+                    it.copy(startOfWeek = startDay)
+                }
+                refreshSummarySchedule()
+            }
+        }
+    }
+
+    private fun observeCardLayout() {
+        viewModelScope.launch {
+            userPreferencesRepository.cardLayoutFlow.collect { stored ->
+                val mapped = stored?.let { value ->
+                    CardLayoutMode.values().firstOrNull { it.name == value }
+                }
+                if (mapped != null) {
+                    _uiState.update { it.copy(cardLayout = mapped) }
+                }
+            }
+        }
+    }
+
+    private fun ensureFirstUsageDate() {
+        viewModelScope.launch {
+            val firstUsage = userPreferencesRepository.ensureFirstUsageDate()
+            _uiState.update { it.copy(firstUsageDate = firstUsage) }
+            refreshSummarySchedule()
+        }
+    }
+
+    private fun refreshSummarySchedule() {
+        val state = _uiState.value
+        val schedule = calculateSummaryScheduleUseCase(
+            startOfWeek = state.startOfWeek,
+            firstUsageDate = state.firstUsageDate,
+            today = LocalDate.now()
+        )
+        _uiState.update { it.copy(summarySchedule = schedule) }
     }
 
     private fun observeDecisionsForCurrentDay() {
@@ -126,6 +183,7 @@ class HomeViewModel(
 
     fun toggleDeleteMode() {
         _uiState.update { state ->
+            if (state.selectedDate.isBefore(LocalDate.now())) return@update state
             if (state.isDeleteMode) {
                 state.copy(isDeleteMode = false, selectedForDeletion = emptySet())
             } else {
@@ -176,5 +234,8 @@ class HomeViewModel(
 
     fun updateCardLayout(mode: CardLayoutMode) {
         _uiState.update { it.copy(cardLayout = mode) }
+        viewModelScope.launch {
+            userPreferencesRepository.saveCardLayout(mode.name)
+        }
     }
 }

@@ -17,9 +17,11 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,9 +43,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dmood.app.domain.model.CategoryType
 import com.dmood.app.ui.DmoodViewModelFactory
+import java.time.DayOfWeek
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -115,81 +120,27 @@ fun WeeklySummaryScreen(
                     )
                 }
 
+                !uiState.summaryAvailableToday -> {
+                    SummaryLockedState(
+                        nextSummaryDate = uiState.nextSummaryDate,
+                        startOfWeek = uiState.startOfWeek
+                    )
+                }
+
                 else -> {
-                    // Evitar problemas de smart-cast usando let anidado sobre las propiedades nullable
                     uiState.summary?.let { summary ->
                         uiState.highlight?.let { highlight ->
-                            LazyRow(
-                                contentPadding = PaddingValues(vertical = 8.dp),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                item {
-                                    SummaryCard(
-                                        title = "Tono de la semana",
-                                        description = highlight.emotionalTrend,
-                                        accentColors = listOf(
-                                            MaterialTheme.colorScheme.primary,
-                                            MaterialTheme.colorScheme.secondary
-                                        )
-                                    )
-                                }
-                                item {
-                                    ToneDistributionCard(
-                                        calm = summary.calmPercentage,
-                                        impulsive = summary.impulsivePercentage
-                                    )
-                                }
-                                item {
-                                    HighlightDaysCard(highlight = highlight)
-                                }
-                                items(buildCategorySlides(summary.categoryDistribution, summary.totalDecisions)) { content ->
-                                    content()
-                                }
-                            }
-                        } ?: run {
-                            Text(
-                                text = "Todavía no hay suficientes decisiones esta semana para generar un resumen. Registra tus decisiones durante varios días y vuelve aquí.",
-                                style = MaterialTheme.typography.bodyMedium
+                            WeeklySummaryCarousel(
+                                summary = summary,
+                                highlight = highlight,
+                                weekRange = weekRange
                             )
-                        }
-                    } ?: run {
-                        Text(
-                            text = "Todavía no hay suficientes decisiones esta semana para generar un resumen. Registra tus decisiones durante varios días y vuelve aquí.",
+                        } ?: Text(
+                            text = "Aún no hay suficientes decisiones para crear el resumen. Registra algunos días más y vuelve.",
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SummaryCard(
-    title: String,
-    description: String,
-    accentColors: List<Color>
-) {
-    Card(
-        modifier = Modifier
-            .width(280.dp)
-            .height(220.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.linearGradient(colors = accentColors)
-                )
-                .padding(20.dp)
-        ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(text = title, style = MaterialTheme.typography.titleMedium, color = Color.White)
-                Text(text = description, style = MaterialTheme.typography.bodyLarge, color = Color.White)
             }
         }
     }
@@ -257,6 +208,141 @@ private fun RowBarSegment(
                     .weight(safeImpulsive)
                     .background(impulsiveColor)
             )
+        }
+    }
+}
+
+@Composable
+private fun WeeklySummaryCarousel(
+    summary: WeeklySummary,
+    highlight: WeeklyHighlight,
+    weekRange: String?
+) {
+    val slides = buildList {
+        add {
+            WeeklyHeroCard(
+                totalDecisions = summary.totalDecisions,
+                weekRange = weekRange
+            )
+        }
+        add {
+            ToneDistributionCard(
+                calm = summary.calmPercentage,
+                impulsive = summary.impulsivePercentage
+            )
+        }
+        addAll(buildCategorySlides(summary.categoryDistribution, summary.totalDecisions))
+        addAll(highlight.insights.map { insight -> { InsightCard(insight) } })
+    }
+
+    LazyRow(
+        contentPadding = PaddingValues(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        items(slides) { slide ->
+            slide()
+        }
+    }
+}
+
+@Composable
+private fun SummaryLockedState(nextSummaryDate: LocalDate?, startOfWeek: DayOfWeek) {
+    val formatter = DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", Locale("es", "ES"))
+    val formattedDate = nextSummaryDate?.format(formatter)?.replaceFirstChar { it.titlecase(Locale("es", "ES")) }
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Resumen disponible ${startOfWeek.getDisplayName(TextStyle.FULL, Locale("es", "ES"))}",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = formattedDate?.let { "Lo liberaremos el $it cuando haya suficientes datos." }
+                    ?: "Aún estamos reuniendo decisiones para darte un resumen útil.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun WeeklyHeroCard(totalDecisions: Int, weekRange: String?) {
+    Card(
+        modifier = Modifier
+            .width(320.dp)
+            .height(220.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(text = "Resumen tipo wrapped", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    text = weekRange ?: "Semana en curso",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "$totalDecisions decisiones",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Mientras más registres, más afinado será tu análisis.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InsightCard(insight: com.dmood.app.domain.usecase.WeeklyInsight) {
+    val gradient = Brush.linearGradient(
+        listOf(
+            MaterialTheme.colorScheme.secondaryContainer,
+            MaterialTheme.colorScheme.surface
+        )
+    )
+    Card(
+        modifier = Modifier
+            .width(280.dp)
+            .height(200.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(gradient)
+                .padding(18.dp)
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(text = insight.title, style = MaterialTheme.typography.titleMedium)
+                Text(text = insight.description, style = MaterialTheme.typography.bodyMedium)
+                insight.badge?.let {
+                    AssistChip(onClick = {}, enabled = false, label = { Text(it) })
+                }
+            }
         }
     }
 }

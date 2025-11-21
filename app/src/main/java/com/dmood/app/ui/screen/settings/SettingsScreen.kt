@@ -2,10 +2,14 @@ package com.dmood.app.ui.screen.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -14,6 +18,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -27,12 +33,16 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dmood.app.ui.DmoodViewModelFactory
+import java.time.DayOfWeek
+import java.time.format.TextStyle
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -103,6 +113,25 @@ fun SettingsScreen(
                 }
             }
 
+            SettingsSection(title = "Inicio de semana y resúmenes") {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "Elige el día en el que arranca tu semana para liberar el resumen.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    FlowDaySelector(
+                        selected = uiState.startOfWeek,
+                        onSelect = viewModel::onStartOfWeekSelected
+                    )
+                    Text(
+                        text = "Si empiezas a usar D-Mood muy cerca del cierre de semana, esperaremos a tener al menos 4 días activos antes de mostrarte tu primer resumen.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
             SettingsSection(title = "Recordatorios") {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     ReminderRow(
@@ -144,6 +173,32 @@ private fun SettingsSection(
             Column(modifier = Modifier.padding(20.dp)) {
                 content()
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FlowDaySelector(
+    selected: DayOfWeek,
+    onSelect: (DayOfWeek) -> Unit
+) {
+    val locale = remember { Locale("es", "ES") }
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        DayOfWeek.values().forEach { day ->
+            val label = day.getDisplayName(TextStyle.SHORT, locale)
+                .replaceFirstChar { it.titlecase(locale) }
+            FilterChip(
+                selected = day == selected,
+                onClick = { onSelect(day) },
+                label = { Text(label) },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                )
+            )
         }
     }
 }
