@@ -5,6 +5,8 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -154,23 +156,14 @@ fun DecisionEditorScreen(
                 AnimatedContent(
                     targetState = uiState.currentStep,
                     transitionSpec = {
-                        if (targetState > initialState) {
-                            slideInHorizontally(
-                                initialOffsetX = { it },
-                                animationSpec = tween(320)
-                            ) togetherWith slideOutHorizontally(
-                                targetOffsetX = { -it / 2 },
-                                animationSpec = tween(320)
-                            )
-                        } else {
-                            slideInHorizontally(
-                                initialOffsetX = { -it },
-                                animationSpec = tween(320)
-                            ) togetherWith slideOutHorizontally(
-                                targetOffsetX = { it / 2 },
-                                animationSpec = tween(320)
-                            )
-                        }
+                        val direction = if (targetState > initialState) 1 else -1
+                        fadeIn(tween(220)) + slideInHorizontally(
+                            initialOffsetX = { it / 4 * direction },
+                            animationSpec = tween(260)
+                        ) togetherWith fadeOut(tween(200)) + slideOutHorizontally(
+                            targetOffsetX = { -it / 6 * direction },
+                            animationSpec = tween(240)
+                        )
                     },
                     label = "step-animation"
                 ) { step ->
