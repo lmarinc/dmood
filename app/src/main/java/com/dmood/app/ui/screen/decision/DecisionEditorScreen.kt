@@ -157,12 +157,16 @@ fun DecisionEditorScreen(
                     targetState = uiState.currentStep,
                     transitionSpec = {
                         val direction = if (targetState > initialState) 1 else -1
-                        fadeIn(tween(220)) + slideInHorizontally(
-                            initialOffsetX = { it / 4 * direction },
-                            animationSpec = tween(260)
-                        ) togetherWith fadeOut(tween(200)) + slideOutHorizontally(
-                            targetOffsetX = { -it / 6 * direction },
-                            animationSpec = tween(240)
+                        (
+                            slideInHorizontally(
+                                animationSpec = tween(260),
+                                initialOffsetX = { it / 4 * direction }
+                            ) + fadeIn(animationSpec = tween(220))
+                        ) togetherWith (
+                            slideOutHorizontally(
+                                animationSpec = tween(240),
+                                targetOffsetX = { -it / 6 * direction }
+                            ) + fadeOut(animationSpec = tween(200))
                         )
                     },
                     label = "step-animation"

@@ -179,8 +179,15 @@ fun WeeklySummaryScreen(
                                 item {
                                     HighlightDaysCard(highlight = highlight)
                                 }
-                                items(buildCategorySlides(summary.categoryDistribution, summary.totalDecisions)) { content ->
-                                    content()
+                                items(
+                                    summary.categoryDistribution.entries
+                                        .sortedByDescending { it.value }
+                                        .take(3)
+                                ) { entry ->
+                                    CategoryDistributionCard(
+                                        entry = entry,
+                                        total = summary.totalDecisions
+                                    )
                                 }
                             }
 
@@ -335,37 +342,28 @@ private fun HighlightDaysCard(highlight: com.dmood.app.domain.usecase.WeeklyHigh
     }
 }
 
-private fun buildCategorySlides(
-    distribution: Map<CategoryType, Int>,
-    total: Int
-): List<@Composable () -> Unit> {
-    if (distribution.isEmpty() || total == 0) return emptyList()
-    return distribution.entries
-        .sortedByDescending { it.value }
-        .take(3)
-        .map { entry ->
-            {
-                Card(
-                    modifier = Modifier
-                        .width(280.dp)
-                        .height(220.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(text = "Áreas presentes", style = MaterialTheme.typography.titleMedium)
-                        Text(text = entry.key.displayName, style = MaterialTheme.typography.titleLarge)
-                        Text(
-                            text = "${((entry.value / total.toFloat()) * 100).toInt()}% de tus decisiones",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-            }
+@Composable
+private fun CategoryDistributionCard(entry: Map.Entry<CategoryType, Int>, total: Int) {
+    if (total == 0) return
+    Card(
+        modifier = Modifier
+            .width(280.dp)
+            .height(220.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(text = "Áreas presentes", style = MaterialTheme.typography.titleMedium)
+            Text(text = entry.key.displayName, style = MaterialTheme.typography.titleLarge)
+            Text(
+                text = "${((entry.value / total.toFloat()) * 100).toInt()}% de tus decisiones",
+                style = MaterialTheme.typography.bodyMedium
+            )
         }
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
