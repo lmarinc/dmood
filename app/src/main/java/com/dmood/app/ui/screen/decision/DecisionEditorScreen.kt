@@ -5,8 +5,10 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -154,23 +156,10 @@ fun DecisionEditorScreen(
                 AnimatedContent(
                     targetState = uiState.currentStep,
                     transitionSpec = {
-                        if (targetState > initialState) {
-                            slideInHorizontally(
-                                initialOffsetX = { it },
-                                animationSpec = tween(320)
-                            ) togetherWith slideOutHorizontally(
-                                targetOffsetX = { -it / 2 },
-                                animationSpec = tween(320)
-                            )
-                        } else {
-                            slideInHorizontally(
-                                initialOffsetX = { -it },
-                                animationSpec = tween(320)
-                            ) togetherWith slideOutHorizontally(
-                                targetOffsetX = { it / 2 },
-                                animationSpec = tween(320)
-                            )
-                        }
+                        (fadeIn(animationSpec = tween(220)) +
+                                scaleIn(initialScale = 0.98f, animationSpec = tween(220))) togetherWith
+                                (fadeOut(animationSpec = tween(180)) +
+                                        scaleOut(targetScale = 1.02f, animationSpec = tween(180)))
                     },
                     label = "step-animation"
                 ) { step ->

@@ -33,6 +33,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dmood.app.ui.DmoodViewModelFactory
+import java.time.DayOfWeek
+import java.time.format.TextStyle
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -99,6 +102,50 @@ fun SettingsScreen(
                             onClick = viewModel::clearFeedback,
                             label = { Text(uiState.feedbackMessage ?: "") }
                         )
+                    }
+                }
+            }
+
+            SettingsSection(title = "Resumen semanal") {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "Define el día en el que quieres recibir tu resumen.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    val days = listOf(
+                        DayOfWeek.MONDAY,
+                        DayOfWeek.TUESDAY,
+                        DayOfWeek.WEDNESDAY,
+                        DayOfWeek.THURSDAY,
+                        DayOfWeek.FRIDAY,
+                        DayOfWeek.SATURDAY,
+                        DayOfWeek.SUNDAY
+                    )
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        days.chunked(4).forEach { rowDays ->
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                rowDays.forEach { day ->
+                                    val isSelected = uiState.weekStartDay == day
+                                    AssistChip(
+                                        onClick = { viewModel.updateWeekStartDay(day) },
+                                        label = {
+                                            Text(day.getDisplayName(TextStyle.SHORT, Locale("es", "ES")))
+                                        },
+                                        colors = AssistChipDefaults.assistChipColors(
+                                            containerColor = if (isSelected)
+                                                MaterialTheme.colorScheme.primaryContainer
+                                            else MaterialTheme.colorScheme.surfaceVariant
+                                        )
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }

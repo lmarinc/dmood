@@ -1,0 +1,34 @@
+Reglas de insights implementadas
+===============================
+
+1. Foco en el miedo
+   - Se activa cuando el 70% o más de las decisiones incluyen la emoción MIEDO.
+   - Mensaje: destaca el porcentaje y sugiere planear antes de reaccionar.
+
+2. Reacciones rápidas
+   - Se activa cuando las decisiones IMPULSIVAS son al menos el doble que las CALMADAS y hay 3 o más impulsivas.
+   - Mensaje: invita a escribir lo que se siente durante 2 minutos antes de actuar.
+
+3. Ancla de serenidad
+   - Se activa cuando el 60% o más de las decisiones son CALMADAS.
+   - Mensaje: refuerza la estabilidad emocional como base para retos grandes.
+
+4. Áreas protagonistas
+   - Se activa cuando una categoría concentra al menos el 50% de las decisiones semanales.
+   - Mensaje: propone diversificar decisiones para equilibrar tensión y energía.
+
+5. Semana intensa
+   - Se activa cuando el 60% o más de las decisiones tienen intensidad 4 o 5.
+   - Mensaje: recomienda introducir pausas cortas antes de decidir para proteger la energía.
+
+6. Registro emocional corto
+   - Se activa cuando se usan dos o menos emociones distintas en la semana.
+   - Mensaje: invita a nombrar emociones nuevas para encontrar respuestas diferentes.
+
+7. Impulso de crecimiento
+   - Se activa cuando al menos la mitad de las decisiones pertenecen a categorías de crecimiento o bienestar personal (Salud/Bienestar, Hábitos/Crecimiento, Relaciones/Social u Ocio/Tiempo libre).
+   - Mensaje: celebra el progreso y anima a reconocer cómo se siente en el cuerpo.
+
+8. Explora más (fallback)
+   - Se muestra cuando no se activa ninguna regla anterior.
+   - Mensaje: recuerda que registrar más decisiones mejora la precisión del mapa emocional.

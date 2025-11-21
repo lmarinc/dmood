@@ -19,7 +19,8 @@ object DmoodViewModelFactory : ViewModelProvider.Factory {
             modelClass.isAssignableFrom(HomeViewModel::class.java) -> {
                 HomeViewModel(
                     decisionRepository = locator.decisionRepository,
-                    userPreferencesRepository = locator.userPreferencesRepository
+                    userPreferencesRepository = locator.userPreferencesRepository,
+                    calculateWeeklySummaryScheduleUseCase = locator.calculateWeeklySummaryScheduleUseCase
                 ) as T
             }
 
@@ -36,7 +37,9 @@ object DmoodViewModelFactory : ViewModelProvider.Factory {
                     decisionRepository = locator.decisionRepository,
                     buildWeeklySummaryUseCase = locator.buildWeeklySummaryUseCase,
                     extractWeeklyHighlightsUseCase = locator.extractWeeklyHighlightsUseCase,
-                    userPreferencesRepository = locator.userPreferencesRepository
+                    userPreferencesRepository = locator.userPreferencesRepository,
+                    calculateWeeklySummaryScheduleUseCase = locator.calculateWeeklySummaryScheduleUseCase,
+                    generateDecisionInsightsUseCase = locator.generateDecisionInsightsUseCase
                 ) as T
             }
 

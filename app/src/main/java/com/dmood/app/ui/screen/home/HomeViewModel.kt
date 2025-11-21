@@ -6,9 +6,11 @@ import com.dmood.app.data.preferences.UserPreferencesRepository
 import com.dmood.app.domain.model.CategoryType
 import com.dmood.app.domain.model.Decision
 import com.dmood.app.domain.repository.DecisionRepository
+import com.dmood.app.domain.usecase.CalculateWeeklySummaryScheduleUseCase
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.DayOfWeek
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -24,7 +26,12 @@ data class HomeUiState(
     val searchQuery: String = "",
     val categoryFilter: CategoryType? = null,
     val cardLayout: CardLayoutMode = CardLayoutMode.COZY,
-    val minAvailableDate: LocalDate = LocalDate.now()
+    val minAvailableDate: LocalDate = LocalDate.now(),
+    val weekStartDay: DayOfWeek = DayOfWeek.MONDAY,
+    val firstUseDate: LocalDate? = null,
+    val nextSummaryDate: LocalDate? = null,
+    val latestSummaryDate: LocalDate? = null,
+    val summaryAvailableToday: Boolean = false
 )
 
 enum class CardLayoutMode(val label: String, val description: String) {
@@ -35,7 +42,8 @@ enum class CardLayoutMode(val label: String, val description: String) {
 
 class HomeViewModel(
     private val decisionRepository: DecisionRepository,
-    private val userPreferencesRepository: UserPreferencesRepository
+    private val userPreferencesRepository: UserPreferencesRepository,
+    private val calculateWeeklySummaryScheduleUseCase: CalculateWeeklySummaryScheduleUseCase
 ) : ViewModel() {
 
     private val zoneId: ZoneId = ZoneId.systemDefault()
@@ -45,8 +53,39 @@ class HomeViewModel(
 
     init {
         observeUserName()
+        observePreferredCardLayout()
+        observeWeekStartDay()
+        ensureFirstUseDate()
         loadMinAvailableDate()
         observeDecisionsForCurrentDay()
+    }
+
+    private fun observePreferredCardLayout() {
+        viewModelScope.launch {
+            userPreferencesRepository.cardLayoutFlow.collect { modeString ->
+                val mode = modeString?.let { name ->
+                    runCatching { CardLayoutMode.valueOf(name) }.getOrDefault(CardLayoutMode.COZY)
+                } ?: CardLayoutMode.COZY
+                _uiState.update { it.copy(cardLayout = mode) }
+            }
+        }
+    }
+
+    private fun observeWeekStartDay() {
+        viewModelScope.launch {
+            userPreferencesRepository.weekStartDayFlow.collect { startDay ->
+                _uiState.update { it.copy(weekStartDay = startDay) }
+                refreshWeeklySchedule()
+            }
+        }
+    }
+
+    private fun ensureFirstUseDate() {
+        viewModelScope.launch {
+            val firstUse = userPreferencesRepository.ensureFirstUseDate(LocalDate.now())
+            _uiState.update { it.copy(firstUseDate = firstUse) }
+            refreshWeeklySchedule()
+        }
     }
 
     private fun observeUserName() {
@@ -95,6 +134,23 @@ class HomeViewModel(
         }
     }
 
+    private fun refreshWeeklySchedule() {
+        val firstUse = _uiState.value.firstUseDate ?: return
+        val schedule = calculateWeeklySummaryScheduleUseCase(
+            today = LocalDate.now(),
+            startDay = _uiState.value.weekStartDay,
+            firstUseDate = firstUse
+        )
+
+        _uiState.update {
+            it.copy(
+                nextSummaryDate = schedule.nextReleaseDate,
+                latestSummaryDate = schedule.latestAvailableDate,
+                summaryAvailableToday = schedule.availableToday
+            )
+        }
+    }
+
     fun goToPreviousDay() {
         val current = _uiState.value
         val candidate = current.selectedDate.minusDays(1)
@@ -125,6 +181,7 @@ class HomeViewModel(
     // ------- MODO BORRADO MÚLTIPLE -------
 
     fun toggleDeleteMode() {
+        if (_uiState.value.selectedDate != LocalDate.now()) return
         _uiState.update { state ->
             if (state.isDeleteMode) {
                 state.copy(isDeleteMode = false, selectedForDeletion = emptySet())
@@ -149,6 +206,7 @@ class HomeViewModel(
     }
 
     fun deleteSelectedDecisions() {
+        if (_uiState.value.selectedDate != LocalDate.now()) return
         val ids = _uiState.value.selectedForDeletion.toList()
         if (ids.isEmpty()) return
 
@@ -176,5 +234,8 @@ class HomeViewModel(
 
     fun updateCardLayout(mode: CardLayoutMode) {
         _uiState.update { it.copy(cardLayout = mode) }
+        viewModelScope.launch {
+            userPreferencesRepository.saveCardLayoutMode(mode.name)
+        }
     }
 }

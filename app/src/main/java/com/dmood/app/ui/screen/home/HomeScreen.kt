@@ -1,5 +1,6 @@
 package com.dmood.app.ui.screen.home
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,9 +17,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -73,13 +78,12 @@ import com.dmood.app.domain.model.Decision
 import com.dmood.app.ui.DmoodViewModelFactory
 import com.dmood.app.ui.components.DmoodTopBar
 import com.dmood.app.ui.theme.toUiColor
-import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     onAddDecisionClick: () -> Unit,
@@ -106,15 +110,10 @@ fun HomeScreen(
         }
     }
 
-    // Próximo domingo como fecha del resumen semanal
-    val nextSummaryDate = remember(today) {
-        val dow = today.dayOfWeek
-        val daysUntilSunday =
-            (DayOfWeek.SUNDAY.value - dow.value + 7) % 7 // 0 si es hoy, >0 si falta
-        if (daysUntilSunday == 0) today else today.plusDays(daysUntilSunday.toLong())
-    }
-    val daysUntilSummary = remember(today, nextSummaryDate) {
-        ChronoUnit.DAYS.between(today, nextSummaryDate).toInt()
+    val nextSummaryDate = uiState.nextSummaryDate ?: today
+    val daysUntilSummary = remember(today, nextSummaryDate, uiState.summaryAvailableToday) {
+        if (uiState.summaryAvailableToday) 0
+        else ChronoUnit.DAYS.between(today, nextSummaryDate).toInt().coerceAtLeast(0)
     }
     val formattedSummaryDate = remember(nextSummaryDate) {
         nextSummaryDate.format(summaryDateFormatter).replaceFirstChar { char ->
@@ -140,6 +139,7 @@ fun HomeScreen(
             HomeTopBar(
                 isDeleteMode = uiState.isDeleteMode,
                 selectedCount = uiState.selectedForDeletion.size,
+                isToday = isToday,
                 onToggleSelectionMode = viewModel::toggleDeleteMode,
                 onDeleteSelectedClick = { showDeleteDialog = true },
                 categoryFilter = uiState.categoryFilter,
@@ -210,151 +210,78 @@ fun HomeScreen(
                             CircularProgressIndicator()
                         }
                     } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(
-                                horizontal = 20.dp,
-                                vertical = 8.dp
-                            ),
-                            verticalArrangement = Arrangement.spacedBy(18.dp)
+                        val hasDecisionsToday = uiState.decisions.isNotEmpty()
+                        val pages = remember(hasDecisionsToday) {
+                            buildList {
+                                add(HomePagerPage.GREETING)
+                                if (hasDecisionsToday) add(HomePagerPage.DECISIONS)
+                                add(HomePagerPage.ADD)
+                            }
+                        }
+                        val pagerState = rememberPagerState(pageCount = { pages.size })
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 20.dp, vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            // Saludo + resumen (solo hoy, y ahora dentro del scroll)
-                            if (isToday) {
-                                item {
-                                    GreetingAndSummaryCard(
+                            HorizontalPager(
+                                state = pagerState,
+                                modifier = Modifier.fillMaxWidth()
+                            ) { index ->
+                                when (pages[index]) {
+                                    HomePagerPage.GREETING -> GreetingAndSummaryCard(
                                         userName = uiState.userName,
                                         formattedSummaryDate = formattedSummaryDate,
                                         daysUntilSummary = daysUntilSummary,
+                                        summaryAvailable = uiState.summaryAvailableToday,
                                         onOpenSummaryClick = onOpenSummaryClick
                                     )
-                                }
-                            }
 
-                            // Filtros (también dentro del scroll)
-                            val hasFilters = uiState.categoryFilter != null
-                            if (hasFilters) {
-                                item {
-                                    ActiveFiltersRow(
+                                    HomePagerPage.DECISIONS -> DecisionsDeckCard(
+                                        isToday = isToday,
+                                        decisions = filteredDecisions,
+                                        totalDecisions = uiState.decisions.size,
+                                        isDeleteMode = uiState.isDeleteMode,
+                                        selectedForDeletion = uiState.selectedForDeletion,
+                                        layoutMode = uiState.cardLayout,
                                         categoryFilter = uiState.categoryFilter,
-                                        onClearCategory = { viewModel.updateCategoryFilter(null) }
+                                        onClearFilters = { viewModel.updateCategoryFilter(null) },
+                                        onDecisionClick = onDecisionClick,
+                                        onToggleSelection = { decisionId ->
+                                            viewModel.toggleDecisionSelection(decisionId)
+                                        },
+                                        onAddDecisionClick = onAddDecisionClick
+                                    )
+
+                                    HomePagerPage.ADD -> AddDecisionCard(
+                                        isToday = isToday,
+                                        hasDecisions = hasDecisionsToday,
+                                        onAddDecisionClick = onAddDecisionClick
                                     )
                                 }
                             }
 
-                            // Card contenedora de decisiones y botón "+"
-                            item {
-                                Card(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = MaterialTheme.shapes.extraLarge,
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.surface
-                                    ),
-                                    elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
-                                ) {
-                                    Column(
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                pages.forEachIndexed { pageIndex, page ->
+                                    val active = pagerState.currentPage == pageIndex
+                                    val width = if (active) 18.dp else 8.dp
+                                    Box(
                                         modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 20.dp, vertical = 16.dp),
-                                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                                    ) {
-                                        // Cabecera de la card: título + contador + botón "+"
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            val decisionsCount = filteredDecisions.size
-
-                                            Column(
-                                                verticalArrangement = Arrangement.spacedBy(2.dp)
-                                            ) {
-                                                Text(
-                                                    text = "Tus decisiones",
-                                                    style = MaterialTheme.typography.titleMedium.copy(
-                                                        fontWeight = FontWeight.SemiBold
-                                                    )
-                                                )
-
-                                                val subtitleText = when {
-                                                    decisionsCount == 0 && isToday ->
-                                                        "Empieza registrando tu primera decisión de hoy."
-                                                    decisionsCount == 0 && !isToday ->
-                                                        "No hay decisiones guardadas en este día."
-                                                    isToday ->
-                                                        "$decisionsCount decisiones registradas hoy."
-                                                    else ->
-                                                        "$decisionsCount decisiones guardadas."
-                                                }
-
-                                                Text(
-                                                    text = subtitleText,
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            }
-
-                                            if (isToday && !uiState.isDeleteMode) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(40.dp)
-                                                        .clip(CircleShape)
-                                                        .background(MaterialTheme.colorScheme.primary)
-                                                        .clickable { onAddDecisionClick() },
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Text(
-                                                        text = "+",
-                                                        color = MaterialTheme.colorScheme.onPrimary,
-                                                        style = MaterialTheme.typography.titleMedium,
-                                                        fontWeight = FontWeight.Bold
-                                                    )
-                                                }
-                                            }
-                                        }
-
-                                        // Contenido: vacío / filtrado / lista de decisiones
-                                        if (filteredDecisions.isEmpty()) {
-                                            if (uiState.decisions.isEmpty()) {
-                                                Text(
-                                                    text = if (isToday)
-                                                        "Cuando tomes una decisión importante, regístrala aquí para poder revisarla después."
-                                                    else
-                                                        "No hay decisiones registradas para esta fecha.",
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
-                                                )
-                                            } else {
-                                                FilteredEmptyState(
-                                                    onClearFilters = {
-                                                        viewModel.updateCategoryFilter(null)
-                                                    }
-                                                )
-                                            }
-                                        } else {
-                                            Column(
-                                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                                            ) {
-                                                filteredDecisions.forEach { decision ->
-                                                    val isSelected =
-                                                        uiState.selectedForDeletion.contains(decision.id)
-                                                    val isReadOnly = !isToday
-
-                                                    DecisionCard(
-                                                        decision = decision,
-                                                        isDeleteMode = uiState.isDeleteMode,
-                                                        isSelected = isSelected,
-                                                        isReadOnly = isReadOnly,
-                                                        layoutMode = uiState.cardLayout,
-                                                        onCardClick = { onDecisionClick(decision.id) },
-                                                        onToggleSelection = {
-                                                            viewModel.toggleDecisionSelection(decision.id)
-                                                        }
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
+                                            .padding(horizontal = 4.dp)
+                                            .height(8.dp)
+                                            .width(width)
+                                            .clip(MaterialTheme.shapes.small)
+                                            .background(
+                                                if (active) MaterialTheme.colorScheme.primary
+                                                else MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+                                            )
+                                    )
                                 }
                             }
                         }
@@ -452,17 +379,21 @@ private fun DateNavigatorRow(
     }
 }
 
+private enum class HomePagerPage { GREETING, DECISIONS, ADD }
+
 @Composable
 private fun GreetingAndSummaryCard(
     userName: String?,
     formattedSummaryDate: String,
     daysUntilSummary: Int,
+    summaryAvailable: Boolean,
     onOpenSummaryClick: () -> Unit
-) {
-    val displayName = userName?.takeIf { it.isNotBlank() } ?: "de nuevo"
+    ) {
+        val displayName = userName?.takeIf { it.isNotBlank() } ?: "de nuevo"
 
     val summaryStatusText = when {
-        daysUntilSummary <= 0 -> "Tu resumen semanal está disponible hoy."
+        summaryAvailable -> "Tu resumen semanal está disponible hoy."
+        daysUntilSummary == 0 -> "Tu resumen se libera en unas horas."
         daysUntilSummary == 1 -> "Tu resumen semanal estará disponible mañana."
         else -> "Tu resumen semanal estará disponible en $daysUntilSummary días."
     }
@@ -527,11 +458,174 @@ private fun GreetingAndSummaryCard(
                 ) {
                     TextButton(
                         onClick = onOpenSummaryClick,
-                        enabled = daysUntilSummary <= 0
+                        enabled = summaryAvailable
                     ) {
                         Text("Ver resumen semanal")
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DecisionsDeckCard(
+    isToday: Boolean,
+    decisions: List<Decision>,
+    totalDecisions: Int,
+    isDeleteMode: Boolean,
+    selectedForDeletion: Set<Long>,
+    layoutMode: CardLayoutMode,
+    categoryFilter: CategoryType?,
+    onClearFilters: () -> Unit,
+    onDecisionClick: (Long) -> Unit,
+    onToggleSelection: (Long) -> Unit,
+    onAddDecisionClick: () -> Unit
+) {
+    val scrollState = rememberScrollState()
+    val subtitleText = when {
+        totalDecisions == 0 && isToday -> "Empieza registrando tu primera decisión de hoy."
+        totalDecisions == 0 && !isToday -> "No hay decisiones guardadas en este día."
+        isToday -> "$totalDecisions decisiones registradas hoy."
+        else -> "$totalDecisions decisiones guardadas."
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 18.dp)
+                .verticalScroll(scrollState),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "Tus decisiones",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    )
+                    Text(
+                        text = subtitleText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                if (isToday && !isDeleteMode) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary)
+                            .clickable { onAddDecisionClick() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = "Añadir decisión",
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                }
+            }
+
+            if (categoryFilter != null) {
+                ActiveFiltersRow(
+                    categoryFilter = categoryFilter,
+                    onClearCategory = onClearFilters
+                )
+            }
+
+            when {
+                decisions.isEmpty() && totalDecisions == 0 -> {
+                    Text(
+                        text = if (isToday)
+                            "Cuando tomes una decisión importante, regístrala aquí para poder revisarla después."
+                        else
+                            "No hay decisiones registradas para esta fecha.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                decisions.isEmpty() -> {
+                    FilteredEmptyState(onClearFilters = onClearFilters)
+                }
+
+                else -> {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        decisions.forEach { decision ->
+                            val isSelected = selectedForDeletion.contains(decision.id)
+
+                            DecisionCard(
+                                decision = decision,
+                                isDeleteMode = isDeleteMode,
+                                isSelected = isSelected,
+                                isReadOnly = !isToday,
+                                layoutMode = layoutMode,
+                                onCardClick = { onDecisionClick(decision.id) },
+                                onToggleSelection = { onToggleSelection(decision.id) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddDecisionCard(
+    isToday: Boolean,
+    hasDecisions: Boolean,
+    onAddDecisionClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = if (hasDecisions) "Añade otra decisión" else "Empieza con tu primera decisión",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+            )
+            Text(
+                text = if (hasDecisions)
+                    "Cada nuevo registro afina tu mapa emocional y hace más precisas las reglas de la semana."
+                else
+                    "Captura las decisiones importantes de hoy para desbloquear tu primer resumen semanal.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Button(
+                onClick = onAddDecisionClick,
+                enabled = isToday,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (isToday) "Añadir decisión" else "Solo puedes añadir en el día actual")
             }
         }
     }
@@ -595,43 +689,13 @@ private fun FilteredEmptyState(onClearFilters: () -> Unit) {
     }
 }
 
-@Composable
-private fun EmptyDayCard(isToday: Boolean) {
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = if (isToday)
-                    "Hoy aún no has registrado ninguna decisión"
-                else
-                    "No hay decisiones registradas en este día",
-                style = MaterialTheme.typography.titleMedium
-            )
-            Text(
-                text = if (isToday)
-                    "Añade una cuando ocurra algo relevante para ti. Tu futuro yo te lo agradecerá."
-                else
-                    "Puedes seguir explorando otros días o volver a hoy.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
 // ---------- TOPBAR ----------
 
 @Composable
 private fun HomeTopBar(
     isDeleteMode: Boolean,
     selectedCount: Int,
+    isToday: Boolean,
     onToggleSelectionMode: () -> Unit,
     onDeleteSelectedClick: () -> Unit,
     categoryFilter: CategoryType?,
@@ -653,7 +717,7 @@ private fun HomeTopBar(
         title = "D-Mood",
         subtitle = subtitle,
         actions = {
-            if (isDeleteMode) {
+            if (isDeleteMode && isToday) {
                 IconButton(onClick = onToggleSelectionMode) {
                     Icon(
                         imageVector = Icons.Filled.Close,
@@ -773,11 +837,13 @@ private fun HomeTopBar(
                         }
                 }
 
-                IconButton(onClick = onToggleSelectionMode) {
-                    Icon(
-                        imageVector = Icons.Filled.CheckCircle,
-                        contentDescription = "Seleccionar para borrar"
-                    )
+                if (isToday) {
+                    IconButton(onClick = onToggleSelectionMode) {
+                        Icon(
+                            imageVector = Icons.Filled.CheckCircle,
+                            contentDescription = "Seleccionar para borrar"
+                        )
+                    }
                 }
             }
         },
@@ -809,7 +875,7 @@ private fun DecisionCard(
 
     val metrics = remember(layoutMode) { layoutMode.metrics() }
 
-    val enabledClick = isDeleteMode || !isReadOnly
+    val enabledClick = !isReadOnly
     val clickAction: () -> Unit = when {
         isDeleteMode -> onToggleSelection
         isReadOnly -> ({})
@@ -870,7 +936,7 @@ private fun DecisionCard(
                         )
                     }
 
-                    if (isDeleteMode) {
+                    if (isDeleteMode && !isReadOnly) {
                         Checkbox(
                             checked = isSelected,
                             onCheckedChange = { onToggleSelection() }
