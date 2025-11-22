@@ -255,10 +255,10 @@ class WeeklySummaryViewModel(
             "Domingo" to DailyMood.NEGATIVO
         )
         val categoryDistribution = mapOf(
-            CategoryType.PROFESIONAL to 4,
-            CategoryType.PERSONAL to 3,
-            CategoryType.SALUD to 2,
-            CategoryType.FINANZAS to 1
+            CategoryType.TRABAJO_ESTUDIOS to 4,
+            CategoryType.RELACIONES_SOCIAL to 3,
+            CategoryType.SALUD_BIENESTAR to 2,
+            CategoryType.FINANZAS_COMPRAS to 1
         )
 
         return WeeklySummary(

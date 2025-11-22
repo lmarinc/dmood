@@ -605,7 +605,6 @@ private fun DailyDecisionsCard(
     }
 }
 
-@Composable
 private enum class HomeHeroPage { GREETING, DECISIONS }
 
 @OptIn(ExperimentalLayoutApi::class)
