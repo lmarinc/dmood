@@ -26,7 +26,8 @@ data class WeeklySummaryUiState(
     val userName: String? = null,
     val insights: List<com.dmood.app.domain.usecase.InsightRuleResult> = emptyList(),
     val nextSummaryDate: LocalDate? = null,
-    val isSummaryAvailable: Boolean = false
+    val isSummaryAvailable: Boolean = false,
+    val isDemoPreview: Boolean = false
 )
 
 class WeeklySummaryViewModel(
@@ -44,6 +45,7 @@ class WeeklySummaryViewModel(
     private val zoneId: ZoneId = ZoneId.systemDefault()
     private var firstUseDate: LocalDate = LocalDate.now()
     private var weekStartDay: DayOfWeek = DayOfWeek.MONDAY
+    private var hasLoadedOnce: Boolean = false
 
     init {
         observeUserName()
@@ -61,25 +63,32 @@ class WeeklySummaryViewModel(
     private fun observeUserPreferences() {
         viewModelScope.launch {
             userPreferencesRepository.firstUseLocalDate(zoneId).collect { stored ->
-                stored?.let { firstUseDate = it }
+                stored?.let {
+                    firstUseDate = it
+                    refreshIfLoaded()
+                }
             }
         }
         viewModelScope.launch {
             userPreferencesRepository.weekStartDayFlow.collect { stored ->
                 weekStartDay = stored
+                refreshIfLoaded()
             }
         }
         viewModelScope.launch {
             val stored = userPreferencesRepository.ensureFirstUseDate()
             firstUseDate = Instant.ofEpochMilli(stored).atZone(zoneId).toLocalDate()
+            refreshIfLoaded()
         }
     }
 
     fun loadWeeklySummary() {
         viewModelScope.launch {
+            hasLoadedOnce = true
             _uiState.value = _uiState.value.copy(
                 isLoading = true,
-                errorMessage = null
+                errorMessage = null,
+                isDemoPreview = false
             )
 
             try {
@@ -135,6 +144,58 @@ class WeeklySummaryViewModel(
                     isSummaryAvailable = false
                 )
             }
+        }
+    }
+
+    fun startDemoPreview() {
+        val today = LocalDate.now()
+        val startDate = today.minusDays(7)
+        val endDate = today.minusDays(1)
+        val summary = WeeklySummary(
+            startDate = startDate.atStartOfDay(zoneId).toInstant().toEpochMilli(),
+            endDate = endDate.atStartOfDay(zoneId).toInstant().toEpochMilli(),
+            totalDecisions = 8,
+            calmPercentage = 55f,
+            impulsivePercentage = 30f,
+            neutralPercentage = 15f,
+            dailyMoods = mapOf(
+                "Lunes" to com.dmood.app.domain.usecase.DailyMood.POSITIVO,
+                "Martes" to com.dmood.app.domain.usecase.DailyMood.POSITIVO,
+                "Miércoles" to com.dmood.app.domain.usecase.DailyMood.NEUTRO,
+                "Jueves" to com.dmood.app.domain.usecase.DailyMood.NEGATIVO,
+                "Viernes" to com.dmood.app.domain.usecase.DailyMood.POSITIVO
+            ),
+            categoryDistribution = mapOf(
+                com.dmood.app.domain.model.CategoryType.RELACIONES to 3,
+                com.dmood.app.domain.model.CategoryType.SALUD to 2,
+                com.dmood.app.domain.model.CategoryType.PROYECTOS to 3
+            )
+        )
+        val highlight = extractWeeklyHighlightsUseCase(summary)
+        val insights = generateInsightRulesUseCase(emptyList())
+
+        _uiState.value = WeeklySummaryUiState(
+            isLoading = false,
+            summary = summary,
+            highlight = highlight,
+            errorMessage = null,
+            userName = _uiState.value.userName,
+            insights = if (insights.isEmpty()) listOf(
+                com.dmood.app.domain.usecase.InsightRuleResult(
+                    title = "Ejemplo de insight",
+                    description = "Así verás tus pistas semanales cuando registres decisiones a diario.",
+                    tag = "Demo"
+                )
+            ) else insights,
+            nextSummaryDate = _uiState.value.nextSummaryDate,
+            isSummaryAvailable = true,
+            isDemoPreview = true
+        )
+    }
+
+    private fun refreshIfLoaded() {
+        if (hasLoadedOnce) {
+            loadWeeklySummary()
         }
     }
 }

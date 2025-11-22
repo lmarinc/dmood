@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -210,11 +211,13 @@ fun HomeScreen(
                     } else {
                         val heroPages = remember(filteredDecisions, isToday) {
                             buildList {
-                                add(HomeHeroPage.GREETING)
-                                if (filteredDecisions.isNotEmpty()) {
-                                    add(HomeHeroPage.DECISIONS)
+                                if (isToday) {
+                                    add(HomeHeroPage.GREETING)
                                 }
-                                add(HomeHeroPage.ADD)
+                                add(HomeHeroPage.DECISIONS)
+                                if (isToday) {
+                                    add(HomeHeroPage.ADD)
+                                }
                             }
                         }
                         val pagerState = rememberPagerState(pageCount = { heroPages.size })
@@ -470,10 +473,16 @@ private fun HomeHeroPager(
             contentPadding = PaddingValues(horizontal = 4.dp),
             flingBehavior = PagerDefaults.flingBehavior(state = pagerState)
         ) { page ->
-            when (pages[page]) {
-                HomeHeroPage.GREETING -> greeting()
-                HomeHeroPage.DECISIONS -> decisions()
-                HomeHeroPage.ADD -> addDecision()
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 260.dp)
+            ) {
+                when (pages[page]) {
+                    HomeHeroPage.GREETING -> greeting()
+                    HomeHeroPage.DECISIONS -> decisions()
+                    HomeHeroPage.ADD -> addDecision()
+                }
             }
         }
 
@@ -509,10 +518,6 @@ private fun DailyDecisionsCard(
     onToggleSelection: (Long) -> Unit,
     onClearFilters: () -> Unit
 ) {
-    val accentColors = listOf(
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-        MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f)
-    )
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
@@ -522,7 +527,6 @@ private fun DailyDecisionsCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Brush.verticalGradient(accentColors))
                 .padding(horizontal = 20.dp, vertical = 18.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -628,7 +632,7 @@ private fun AddDecisionCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Column(
@@ -640,10 +644,7 @@ private fun AddDecisionCard(
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
             )
             Text(
-                text = if (isToday)
-                    "Cada registro mejora tu resumen semanal. Próximo corte: $nextSummaryDate."
-                else
-                    "Solo puedes añadir decisiones al día actual.",
+                text = "Cada registro mejora tu resumen semanal. Próximo corte: $nextSummaryDate.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
