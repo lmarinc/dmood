@@ -28,7 +28,8 @@ data class HomeUiState(
     val minAvailableDate: LocalDate = LocalDate.now(),
     val weekStartDay: java.time.DayOfWeek = java.time.DayOfWeek.MONDAY,
     val nextSummaryDate: LocalDate = LocalDate.now(),
-    val isSummaryAvailable: Boolean = false
+    val isSummaryAvailable: Boolean = false,
+    val developerModeEnabled: Boolean = false
 )
 
 enum class CardLayoutMode(val label: String, val description: String) {
@@ -52,6 +53,7 @@ class HomeViewModel(
     init {
         observeUserName()
         observePreferences()
+        observeDeveloperMode()
         ensureFirstUseDate()
         loadMinAvailableDate()
         observeDecisionsForCurrentDay()
@@ -223,6 +225,15 @@ class HomeViewModel(
         }
     }
 
+    private fun observeDeveloperMode() {
+        viewModelScope.launch {
+            userPreferencesRepository.developerModeFlow.collect { enabled ->
+                _uiState.update { it.copy(developerModeEnabled = enabled) }
+                refreshWeeklySchedule()
+            }
+        }
+    }
+
     private fun ensureFirstUseDate() {
         viewModelScope.launch {
             val stored = userPreferencesRepository.ensureFirstUseDate()
@@ -233,6 +244,7 @@ class HomeViewModel(
 
     private fun refreshWeeklySchedule() {
         val weekStart = _uiState.value.weekStartDay
+        val devMode = _uiState.value.developerModeEnabled
         val schedule = calculateWeeklyScheduleUseCase(
             firstUseDate = firstUseDate,
             weekStartDay = weekStart,
@@ -241,7 +253,7 @@ class HomeViewModel(
         _uiState.update {
             it.copy(
                 nextSummaryDate = schedule.nextSummaryDate,
-                isSummaryAvailable = schedule.isSummaryAvailable
+                isSummaryAvailable = schedule.isSummaryAvailable || devMode
             )
         }
     }
