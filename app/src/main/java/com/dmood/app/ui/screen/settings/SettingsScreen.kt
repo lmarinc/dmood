@@ -25,7 +25,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -37,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dmood.app.ui.DmoodViewModelFactory
+import com.dmood.app.ui.components.DmoodTopBar
 import java.time.DayOfWeek
 import java.time.format.TextStyle
 import java.util.Locale
@@ -45,6 +45,7 @@ import java.util.Locale
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    onOpenWeeklyHistory: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = viewModel(factory = DmoodViewModelFactory)
 ) {
@@ -55,13 +56,14 @@ fun SettingsScreen(
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = { Text("Ajustes") },
+            DmoodTopBar(
+                title = "Ajustes",
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
                     }
-                }
+                },
+                showLogo = true
             )
         }
     ) { innerPadding ->
@@ -175,6 +177,19 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
+                }
+            }
+
+            SettingsSection(title = "Históricos y descargas") {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "Accede a los resúmenes semanales anteriores y descárgalos en PDF.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Button(onClick = onOpenWeeklyHistory, modifier = Modifier.fillMaxWidth()) {
+                        Text("Abrir histórico semanal")
+                    }
                 }
             }
         }

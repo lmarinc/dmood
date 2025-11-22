@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -25,6 +27,7 @@ fun DmoodTopBar(
     title: String,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    navigationIcon: (@Composable () -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit = {},
     showLogo: Boolean = false
@@ -51,6 +54,10 @@ fun DmoodTopBar(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    navigationIcon?.let {
+                        it()
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
                     if (showLogo) {
                         Image(
                             painter = painterResource(id = R.drawable.ic_logo),

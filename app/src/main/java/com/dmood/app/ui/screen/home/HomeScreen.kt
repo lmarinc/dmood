@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -208,15 +209,17 @@ fun HomeScreen(
                             CircularProgressIndicator()
                         }
                     } else {
-                        val heroPages = remember(filteredDecisions, isToday) {
-                            buildList {
-                                add(HomeHeroPage.GREETING)
-                                if (filteredDecisions.isNotEmpty()) {
-                                    add(HomeHeroPage.DECISIONS)
-                                }
-                                add(HomeHeroPage.ADD)
-                            }
-                        }
+    val heroPages = remember(filteredDecisions, isToday) {
+        buildList {
+            if (isToday) {
+                add(HomeHeroPage.GREETING)
+            }
+            add(HomeHeroPage.DECISIONS)
+            if (isToday) {
+                add(HomeHeroPage.ADD)
+            }
+        }
+    }
                         val pagerState = rememberPagerState(pageCount = { heroPages.size })
                         val hasFilters = uiState.categoryFilter != null
 
@@ -384,23 +387,11 @@ private fun GreetingAndSummaryCard(
         else -> "Tu resumen semanal estará disponible en $daysUntilSummary días."
     }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-        shape = MaterialTheme.shapes.extraLarge
-    ) {
+    HeroCard {
         Column(
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
                 Text(
                     text = "Hola, $displayName",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium)
@@ -455,6 +446,29 @@ private fun GreetingAndSummaryCard(
 }
 
 @Composable
+private fun HeroCard(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        shape = MaterialTheme.shapes.extraLarge
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            content = content
+        )
+    }
+}
+
+@Composable
 private fun HomeHeroPager(
     pagerState: androidx.compose.foundation.pager.PagerState,
     pages: List<HomeHeroPage>,
@@ -466,7 +480,10 @@ private fun HomeHeroPager(
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         HorizontalPager(
             state = pagerState,
-            pageSpacing = 14.dp,
+            pageSpacing = 8.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 320.dp),
             contentPadding = PaddingValues(horizontal = 4.dp),
             flingBehavior = PagerDefaults.flingBehavior(state = pagerState)
         ) { page ->
@@ -517,7 +534,7 @@ private fun DailyDecisionsCard(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Column(
             modifier = Modifier
@@ -625,42 +642,32 @@ private fun AddDecisionCard(
     daysUntilSummary: Int,
     nextSummaryDate: String
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+    HeroCard {
+        Text(
+            text = if (hasDecisions) "Suma más decisiones" else "Añade tu primera decisión",
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+        )
+        Text(
+            text = if (isToday)
+                "Cada registro mejora tu resumen semanal. Próximo corte: $nextSummaryDate."
+            else
+                "Solo puedes añadir decisiones al día actual.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Button(
+            onClick = onAddDecisionClick,
+            enabled = isToday,
+            modifier = Modifier.fillMaxWidth()
         ) {
+            Text(if (isToday) "Registrar decisión" else "Solo disponible hoy")
+        }
+        if (daysUntilSummary > 0) {
             Text(
-                text = if (hasDecisions) "Suma más decisiones" else "Añade tu primera decisión",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                text = "Te quedan $daysUntilSummary día(s) para pulir tu resumen.",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary
             )
-            Text(
-                text = if (isToday)
-                    "Cada registro mejora tu resumen semanal. Próximo corte: $nextSummaryDate."
-                else
-                    "Solo puedes añadir decisiones al día actual.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Button(
-                onClick = onAddDecisionClick,
-                enabled = isToday,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(if (isToday) "Registrar decisión" else "Solo disponible hoy")
-            }
-            if (daysUntilSummary > 0) {
-                Text(
-                    text = "Te quedan $daysUntilSummary día(s) para pulir tu resumen.",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
         }
     }
 }

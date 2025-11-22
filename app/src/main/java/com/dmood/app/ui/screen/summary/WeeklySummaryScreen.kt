@@ -1,4 +1,3 @@
-
 package com.dmood.app.ui.screen.summary
 
 import androidx.compose.foundation.background
@@ -6,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,25 +14,28 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,12 +47,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dmood.app.domain.model.CategoryType
 import com.dmood.app.ui.DmoodViewModelFactory
 import com.dmood.app.domain.usecase.InsightRuleResult
+import com.dmood.app.ui.components.DmoodTopBar
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WeeklySummaryScreen(
     onBack: () -> Unit,
@@ -75,140 +77,243 @@ fun WeeklySummaryScreen(
         DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", Locale("es", "ES"))
     )?.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale("es", "ES")) else it.toString() }
 
+    val scrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    val gradient = remember {
+        Brush.verticalGradient(
+            colors = listOf(
+                MaterialTheme.colorScheme.background,
+                MaterialTheme.colorScheme.surface
+            )
+        )
+    }
+
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = { Text("Resumen semanal") },
+            DmoodTopBar(
+                title = "Resumen semanal",
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
                     }
-                }
+                },
+                showLogo = true
             )
         }
     ) { innerPadding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
+                .background(gradient)
                 .padding(innerPadding)
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = uiState.userName?.let { "Tu semana, $it" } ?: "Tu semana",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.SemiBold
-            )
-            if (weekRange != null) {
-                Text(
-                    text = weekRange,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 20.dp, vertical = 16.dp)
+                    .verticalScroll(scrollState),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                SummaryIntroCard(
+                    userName = uiState.userName,
+                    weekRange = weekRange,
+                    isSummaryAvailable = uiState.isSummaryAvailable || uiState.isDemo,
+                    nextSummaryFriendly = nextSummaryFriendly,
+                    isDemo = uiState.isDemo,
+                    onStart = {
+                        scope.launch { scrollState.animateScrollTo(scrollState.maxValue) }
+                    },
+                    onStartDemo = viewModel::loadDemoSummary
                 )
-            }
 
-            when {
-                uiState.isLoading -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
-                }
-
-                !uiState.isSummaryAvailable -> {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.extraLarge,
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(20.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Text(
-                                text = "Aún no hay resumen disponible",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Text(
-                                text = uiState.errorMessage ?: "Prepárate para tu próximo corte el ${nextSummaryFriendly ?: "-"}.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            if (nextSummaryFriendly != null) {
-                                AssistChip(
-                                    onClick = {},
-                                    enabled = false,
-                                    label = { Text("Próximo resumen: $nextSummaryFriendly") }
-                                )
-                            }
+                when {
+                    uiState.isLoading -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
                         }
                     }
-                }
 
-                uiState.errorMessage != null -> {
-                    Text(
-                        text = uiState.errorMessage ?: "",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                }
+                    uiState.summary != null && uiState.highlight != null -> {
+                        SummaryContent(
+                            summary = uiState.summary,
+                            highlight = uiState.highlight,
+                            insights = uiState.insights
+                        )
+                    }
 
-                else -> {
-                    uiState.summary?.let { summary ->
-                        uiState.highlight?.let { highlight ->
-                            LazyRow(
-                                contentPadding = PaddingValues(vertical = 8.dp),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                item {
-                                    SummaryCard(
-                                        title = "Tono de la semana",
-                                        description = highlight.emotionalTrend,
-                                        accentColors = listOf(
-                                            MaterialTheme.colorScheme.primary,
-                                            MaterialTheme.colorScheme.secondary
-                                        )
-                                    )
-                                }
-                                item {
-                                    ToneDistributionCard(
-                                        calm = summary.calmPercentage,
-                                        impulsive = summary.impulsivePercentage
-                                    )
-                                }
-                                item {
-                                    HighlightDaysCard(highlight = highlight)
-                                }
-                                items(
-                                    summary.categoryDistribution.entries
-                                        .sortedByDescending { it.value }
-                                        .take(3)
-                                ) { entry ->
-                                    CategoryDistributionCard(
-                                        entry = entry,
-                                        total = summary.totalDecisions
-                                    )
-                                }
-                            }
-
-                            if (uiState.insights.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                InsightsWrap(insights = uiState.insights)
-                            }
-                        } ?: run {
-                            Text(
-                                text = "Todavía no hay suficientes decisiones esta semana para generar un resumen. Registra tus decisiones durante varios días y vuelve aquí.",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-                    } ?: run {
+                    uiState.summary != null -> {
                         Text(
                             text = "Todavía no hay suficientes decisiones esta semana para generar un resumen. Registra tus decisiones durante varios días y vuelve aquí.",
-                            style = MaterialTheme.typography.bodyMedium
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    else -> {
+                        SummaryEmptyCard(
+                            nextSummaryFriendly = nextSummaryFriendly,
+                            errorMessage = uiState.errorMessage,
+                            onStartDemo = viewModel::loadDemoSummary
                         )
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SummaryIntroCard(
+    userName: String?,
+    weekRange: String?,
+    isSummaryAvailable: Boolean,
+    nextSummaryFriendly: String?,
+    isDemo: Boolean,
+    onStart: () -> Unit,
+    onStartDemo: () -> Unit
+) {
+    SummarySurfaceCard {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = userName?.let { "Tu semana, $it" } ?: "Tu semana",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            weekRange?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            val message = when {
+                isDemo -> "Estás viendo una demostración. Así se verá tu resumen semanal real."
+                isSummaryAvailable -> "El resumen de la semana correspondiente está listo."
+                else -> "Aún no tienes resumen semanal, aquí te dejo una demostración para que veas lo que te espera."
+            }
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Button(
+                    onClick = if (isSummaryAvailable) onStart else onStartDemo,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(if (isSummaryAvailable) "Empezar" else "Empezar Demo")
+                }
+                if (nextSummaryFriendly != null && !isSummaryAvailable) {
+                    AssistChip(
+                        onClick = {},
+                        enabled = false,
+                        label = { Text("Próximo resumen: $nextSummaryFriendly") }
+                    )
+                }
+                if (isDemo) {
+                    AssistChip(onClick = {}, enabled = false, label = { Text("Demo") })
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryEmptyCard(
+    nextSummaryFriendly: String?,
+    errorMessage: String?,
+    onStartDemo: () -> Unit
+) {
+    SummarySurfaceCard {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                text = "Aún no tienes resumen semanal, aquí tienes una demostración de lo que te espera.",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            errorMessage?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            nextSummaryFriendly?.let {
+                Text(
+                    text = "Próximo resumen: $it",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            Button(onClick = onStartDemo) {
+                Text("Empezar Demo")
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryContent(
+    summary: com.dmood.app.domain.usecase.WeeklySummary,
+    highlight: com.dmood.app.domain.usecase.WeeklyHighlight,
+    insights: List<InsightRuleResult>
+) {
+    LazyRow(
+        contentPadding = PaddingValues(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item {
+            SummaryCard(
+                title = "Tono de la semana",
+                description = highlight.emotionalTrend,
+                accentColors = listOf(
+                    MaterialTheme.colorScheme.primary,
+                    MaterialTheme.colorScheme.secondary
+                )
+            )
+        }
+        item {
+            ToneDistributionCard(
+                calm = summary.calmPercentage,
+                impulsive = summary.impulsivePercentage
+            )
+        }
+        item { HighlightDaysCard(highlight = highlight) }
+        items(
+            summary.categoryDistribution.entries
+                .sortedByDescending { it.value }
+                .take(3)
+        ) { entry ->
+            CategoryDistributionCard(
+                entry = entry,
+                total = summary.totalDecisions
+            )
+        }
+    }
+
+    if (insights.isNotEmpty()) {
+        Spacer(modifier = Modifier.height(8.dp))
+        InsightsWrap(insights = insights)
+    }
+}
+
+@Composable
+private fun SummarySurfaceCard(content: @Composable () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        shape = MaterialTheme.shapes.extraLarge
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            content()
         }
     }
 }
@@ -223,7 +328,7 @@ private fun SummaryCard(
         modifier = Modifier
             .width(280.dp)
             .height(220.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Box(
@@ -316,7 +421,7 @@ private fun HighlightDaysCard(highlight: com.dmood.app.domain.usecase.WeeklyHigh
         modifier = Modifier
             .width(280.dp)
             .height(220.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
@@ -359,52 +464,28 @@ private fun CategoryDistributionCard(entry: Map.Entry<CategoryType, Int>, total:
             Text(text = "Áreas presentes", style = MaterialTheme.typography.titleMedium)
             Text(text = entry.key.displayName, style = MaterialTheme.typography.titleLarge)
             Text(
-                text = "${((entry.value / total.toFloat()) * 100).toInt()}% de tus decisiones",
+                text = "${entry.value} decisiones (${((entry.value.toFloat() / total.toFloat()) * 100).toInt()}%)",
                 style = MaterialTheme.typography.bodyMedium
             )
         }
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun InsightsWrap(insights: List<InsightRuleResult>) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = "Reglas que detectamos",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold
-        )
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            insights.forEach { insight ->
-                Card(
-                    shape = MaterialTheme.shapes.large,
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = insight.tag,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = insight.title,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = insight.description,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        insights.forEach { insight ->
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                modifier = Modifier.width(260.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(text = insight.tag.uppercase(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Text(text = insight.title, style = MaterialTheme.typography.titleMedium)
+                    Text(text = insight.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }

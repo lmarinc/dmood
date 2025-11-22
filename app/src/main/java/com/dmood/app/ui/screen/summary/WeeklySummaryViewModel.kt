@@ -3,19 +3,23 @@ package com.dmood.app.ui.screen.summary
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dmood.app.data.preferences.UserPreferencesRepository
+import com.dmood.app.domain.model.CategoryType
 import com.dmood.app.domain.repository.DecisionRepository
 import com.dmood.app.domain.usecase.BuildWeeklySummaryUseCase
 import com.dmood.app.domain.usecase.CalculateWeeklyScheduleUseCase
+import com.dmood.app.domain.usecase.DailyMood
 import com.dmood.app.domain.usecase.ExtractWeeklyHighlightsUseCase
 import com.dmood.app.domain.usecase.GenerateInsightRulesUseCase
+import com.dmood.app.domain.usecase.InsightRuleResult
 import com.dmood.app.domain.usecase.WeeklyHighlight
 import com.dmood.app.domain.usecase.WeeklySummary
-import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class WeeklySummaryUiState(
@@ -26,7 +30,8 @@ data class WeeklySummaryUiState(
     val userName: String? = null,
     val insights: List<com.dmood.app.domain.usecase.InsightRuleResult> = emptyList(),
     val nextSummaryDate: LocalDate? = null,
-    val isSummaryAvailable: Boolean = false
+    val isSummaryAvailable: Boolean = false,
+    val isDemo: Boolean = false
 )
 
 class WeeklySummaryViewModel(
@@ -42,12 +47,9 @@ class WeeklySummaryViewModel(
     val uiState: StateFlow<WeeklySummaryUiState> = _uiState
 
     private val zoneId: ZoneId = ZoneId.systemDefault()
-    private var firstUseDate: LocalDate = LocalDate.now()
-    private var weekStartDay: DayOfWeek = DayOfWeek.MONDAY
 
     init {
         observeUserName()
-        observeUserPreferences()
     }
 
     private fun observeUserName() {
@@ -55,23 +57,6 @@ class WeeklySummaryViewModel(
             userPreferencesRepository.userNameFlow.collect { name ->
                 _uiState.value = _uiState.value.copy(userName = name)
             }
-        }
-    }
-
-    private fun observeUserPreferences() {
-        viewModelScope.launch {
-            userPreferencesRepository.firstUseLocalDate(zoneId).collect { stored ->
-                stored?.let { firstUseDate = it }
-            }
-        }
-        viewModelScope.launch {
-            userPreferencesRepository.weekStartDayFlow.collect { stored ->
-                weekStartDay = stored
-            }
-        }
-        viewModelScope.launch {
-            val stored = userPreferencesRepository.ensureFirstUseDate()
-            firstUseDate = Instant.ofEpochMilli(stored).atZone(zoneId).toLocalDate()
         }
     }
 
@@ -84,9 +69,12 @@ class WeeklySummaryViewModel(
 
             try {
                 val today = LocalDate.now()
+                val storedWeekStart = userPreferencesRepository.weekStartDayFlow.first()
+                val storedFirstUse = userPreferencesRepository.ensureFirstUseDate()
+                val firstUseDate = Instant.ofEpochMilli(storedFirstUse).atZone(zoneId).toLocalDate()
                 val schedule = calculateWeeklyScheduleUseCase(
                     firstUseDate = firstUseDate,
-                    weekStartDay = weekStartDay,
+                    weekStartDay = storedWeekStart,
                     today = today
                 )
 
@@ -100,7 +88,9 @@ class WeeklySummaryViewModel(
                         highlight = null,
                         errorMessage = "Tu próximo resumen estará listo el ${schedule.nextSummaryDate}",
                         nextSummaryDate = schedule.nextSummaryDate,
-                        isSummaryAvailable = false
+                        isSummaryAvailable = false,
+                        userName = _uiState.value.userName,
+                        isDemo = false
                     )
                     return@launch
                 }
@@ -123,7 +113,9 @@ class WeeklySummaryViewModel(
                     errorMessage = null,
                     insights = insights,
                     nextSummaryDate = schedule.nextSummaryDate,
-                    isSummaryAvailable = schedule.isSummaryAvailable
+                    isSummaryAvailable = schedule.isSummaryAvailable,
+                    userName = _uiState.value.userName,
+                    isDemo = false
                 )
             } catch (e: Exception) {
                 _uiState.value = WeeklySummaryUiState(
@@ -132,9 +124,73 @@ class WeeklySummaryViewModel(
                     highlight = null,
                     errorMessage = "No se pudo cargar el resumen semanal.",
                     nextSummaryDate = null,
-                    isSummaryAvailable = false
+                    isSummaryAvailable = false,
+                    userName = _uiState.value.userName,
+                    isDemo = false
                 )
             }
+        }
+    }
+
+    fun loadDemoSummary() {
+        val today = LocalDate.now()
+        val startDate = today.minusDays(7)
+        val endDate = today.minusDays(1)
+
+        val summary = WeeklySummary(
+            startDate = startDate.atStartOfDay(zoneId).toInstant().toEpochMilli(),
+            endDate = endDate.atStartOfDay(zoneId).toInstant().toEpochMilli(),
+            totalDecisions = 8,
+            calmPercentage = 62f,
+            impulsivePercentage = 24f,
+            neutralPercentage = 14f,
+            dailyMoods = mapOf(
+                "Lunes" to DailyMood.POSITIVO,
+                "Martes" to DailyMood.NEUTRO,
+                "Miércoles" to DailyMood.POSITIVO,
+                "Jueves" to DailyMood.NEGATIVO,
+                "Viernes" to DailyMood.POSITIVO
+            ),
+            categoryDistribution = mapOf(
+                CategoryType.RELACIONES_SOCIAL to 3,
+                CategoryType.SALUD_BIENESTAR to 2,
+                CategoryType.TRABAJO_ESTUDIOS to 2,
+                CategoryType.OCIO_TIEMPO_LIBRE to 1
+            )
+        )
+
+        val highlight = WeeklyHighlight(
+            emotionalTrend = "Semana equilibrada con momentos luminosos y aprendizajes.",
+            strongestPositiveDay = "Miércoles",
+            strongestNegativeDay = "Jueves",
+            mostFrequentCategory = CategoryType.RELACIONES_SOCIAL
+        )
+
+        val insights = listOf(
+            InsightRuleResult(
+                title = "Fortalece tus relaciones", 
+                description = "La mayor parte de tus decisiones estuvieron ligadas a tu entorno social.",
+                tag = "Conexiones"
+            ),
+            InsightRuleResult(
+                title = "Gestiona la energía en jueves",
+                description = "El jueves se percibe más pesado. Programa una pausa consciente ese día.",
+                tag = "Rutinas"
+            )
+        )
+
+        _uiState.update { state ->
+            WeeklySummaryUiState(
+                isLoading = false,
+                summary = summary,
+                highlight = highlight,
+                errorMessage = null,
+                userName = state.userName,
+                insights = insights,
+                nextSummaryDate = today.plusWeeks(1),
+                isSummaryAvailable = true,
+                isDemo = true
+            )
         }
     }
 }
