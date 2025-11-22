@@ -5,8 +5,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -41,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dmood.app.domain.model.CategoryType
 import com.dmood.app.ui.DmoodViewModelFactory
+import com.dmood.app.domain.usecase.InsightRuleResult
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -66,6 +71,9 @@ fun WeeklySummaryScreen(
         val end = Instant.ofEpochMilli(summary.endDate).atZone(zone).toLocalDate()
         "Del ${start.format(formatter)} al ${end.format(formatter)}"
     }
+    val nextSummaryFriendly = uiState.nextSummaryDate?.format(
+        DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", Locale("es", "ES"))
+    )?.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale("es", "ES")) else it.toString() }
 
     Scaffold(
         modifier = modifier,
@@ -107,6 +115,36 @@ fun WeeklySummaryScreen(
                     }
                 }
 
+                !uiState.isSummaryAvailable -> {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.extraLarge,
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(20.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text(
+                                text = "Aún no hay resumen disponible",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                text = uiState.errorMessage ?: "Prepárate para tu próximo corte el ${nextSummaryFriendly ?: "-"}.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (nextSummaryFriendly != null) {
+                                AssistChip(
+                                    onClick = {},
+                                    enabled = false,
+                                    label = { Text("Próximo resumen: $nextSummaryFriendly") }
+                                )
+                            }
+                        }
+                    }
+                }
+
                 uiState.errorMessage != null -> {
                     Text(
                         text = uiState.errorMessage ?: "",
@@ -116,7 +154,6 @@ fun WeeklySummaryScreen(
                 }
 
                 else -> {
-                    // Evitar problemas de smart-cast usando let anidado sobre las propiedades nullable
                     uiState.summary?.let { summary ->
                         uiState.highlight?.let { highlight ->
                             LazyRow(
@@ -142,9 +179,21 @@ fun WeeklySummaryScreen(
                                 item {
                                     HighlightDaysCard(highlight = highlight)
                                 }
-                                items(buildCategorySlides(summary.categoryDistribution, summary.totalDecisions)) { content ->
-                                    content()
+                                items(
+                                    summary.categoryDistribution.entries
+                                        .sortedByDescending { it.value }
+                                        .take(3)
+                                ) { entry ->
+                                    CategoryDistributionCard(
+                                        entry = entry,
+                                        total = summary.totalDecisions
+                                    )
                                 }
+                            }
+
+                            if (uiState.insights.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                InsightsWrap(insights = uiState.insights)
                             }
                         } ?: run {
                             Text(
@@ -293,35 +342,71 @@ private fun HighlightDaysCard(highlight: com.dmood.app.domain.usecase.WeeklyHigh
     }
 }
 
-private fun buildCategorySlides(
-    distribution: Map<CategoryType, Int>,
-    total: Int
-): List<@Composable () -> Unit> {
-    if (distribution.isEmpty() || total == 0) return emptyList()
-    return distribution.entries
-        .sortedByDescending { it.value }
-        .take(3)
-        .map { entry ->
-            {
+@Composable
+private fun CategoryDistributionCard(entry: Map.Entry<CategoryType, Int>, total: Int) {
+    if (total == 0) return
+    Card(
+        modifier = Modifier
+            .width(280.dp)
+            .height(220.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(text = "Áreas presentes", style = MaterialTheme.typography.titleMedium)
+            Text(text = entry.key.displayName, style = MaterialTheme.typography.titleLarge)
+            Text(
+                text = "${((entry.value / total.toFloat()) * 100).toInt()}% de tus decisiones",
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun InsightsWrap(insights: List<InsightRuleResult>) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "Reglas que detectamos",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            insights.forEach { insight ->
                 Card(
-                    modifier = Modifier
-                        .width(280.dp)
-                        .height(220.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
                     Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text(text = "Áreas presentes", style = MaterialTheme.typography.titleMedium)
-                        Text(text = entry.key.displayName, style = MaterialTheme.typography.titleLarge)
                         Text(
-                            text = "${((entry.value / total.toFloat()) * 100).toInt()}% de tus decisiones",
-                            style = MaterialTheme.typography.bodyMedium
+                            text = insight.tag,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = insight.title,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = insight.description,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
             }
         }
+    }
 }

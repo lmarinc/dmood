@@ -5,6 +5,8 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -154,23 +156,18 @@ fun DecisionEditorScreen(
                 AnimatedContent(
                     targetState = uiState.currentStep,
                     transitionSpec = {
-                        if (targetState > initialState) {
+                        val direction = if (targetState > initialState) 1 else -1
+                        (
                             slideInHorizontally(
-                                initialOffsetX = { it },
-                                animationSpec = tween(320)
-                            ) togetherWith slideOutHorizontally(
-                                targetOffsetX = { -it / 2 },
-                                animationSpec = tween(320)
-                            )
-                        } else {
-                            slideInHorizontally(
-                                initialOffsetX = { -it },
-                                animationSpec = tween(320)
-                            ) togetherWith slideOutHorizontally(
-                                targetOffsetX = { it / 2 },
-                                animationSpec = tween(320)
-                            )
-                        }
+                                animationSpec = tween(260),
+                                initialOffsetX = { it / 4 * direction }
+                            ) + fadeIn(animationSpec = tween(220))
+                        ) togetherWith (
+                            slideOutHorizontally(
+                                animationSpec = tween(240),
+                                targetOffsetX = { -it / 6 * direction }
+                            ) + fadeOut(animationSpec = tween(200))
+                        )
                     },
                     label = "step-animation"
                 ) { step ->

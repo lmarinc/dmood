@@ -1,0 +1,44 @@
+Reglas de insight semanales
+===========================
+
+Estas son las reglas implementadas en el motor de insights del resumen semanal. Cada una se activa si se cumplen sus condiciones sobre las decisiones de la última ventana analizada.
+
+1) Emoción dominante
+- Condición: una emoción aparece en el 70% o más de las decisiones.
+- Mensaje: "El 70% de tus decisiones han estado teñidas por <emoción>."
+- Objetivo: visibilizar sesgos emocionales recurrentes.
+
+2) Predominio impulsivo
+- Condición: las decisiones con tono IMPULSIVA son el 55% o más del total.
+- Mensaje: "Más de la mitad de tus decisiones nacieron desde un impulso."
+- Objetivo: fomentar pausas y autocontrol antes de actuar.
+
+3) Fortaleza serena
+- Condición: las decisiones CALMADA son el 60% o más del total.
+- Mensaje: "La mayoría de tus decisiones se tomaron con calma."
+- Objetivo: reforzar hábitos y rituales que aportan serenidad.
+
+4) Semanas intensas
+- Condición: intensidad media >= 4.2/5.
+- Mensaje: "Tu media de intensidad ha sido alta, planifica microdescansos."
+- Objetivo: gestionar la energía y prevenir saturación.
+
+5) Enfoque temático
+- Condición: una categoría concentra el 50% o más de las decisiones.
+- Mensaje: "La mitad de tus decisiones giran en torno a <categoría>."
+- Objetivo: animar a priorizar y reservar bloques de tiempo específicos.
+
+6) Paleta emocional limitada
+- Condición: sólo 1 o 2 emociones distintas en la semana.
+- Mensaje: "Has navegado muy pocas emociones principales."
+- Objetivo: invitar a explorar matices y ampliar vocabulario emocional.
+
+7) Decisiones concentradas al final
+- Condición: el 50% o más de decisiones ocurrieron en las últimas 48h de la ventana.
+- Mensaje: "Tus decisiones se acumularon al final de la semana."
+- Objetivo: repartir mejor la carga y crear espacios de decisión más frecuentes.
+
+8) Día más retador
+- Condición: existe al menos un día con estado de ánimo NEGATIVO dominante.
+- Mensaje: "Tus emociones se tensan los <día de la semana>."
+- Objetivo: preparar rutinas de cuidado extra para ese día específico.

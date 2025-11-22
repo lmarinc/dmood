@@ -6,6 +6,7 @@ import com.dmood.app.data.preferences.UserPreferencesRepository
 import com.dmood.app.domain.model.CategoryType
 import com.dmood.app.domain.model.Decision
 import com.dmood.app.domain.repository.DecisionRepository
+import com.dmood.app.domain.usecase.CalculateWeeklyScheduleUseCase
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -24,7 +25,10 @@ data class HomeUiState(
     val searchQuery: String = "",
     val categoryFilter: CategoryType? = null,
     val cardLayout: CardLayoutMode = CardLayoutMode.COZY,
-    val minAvailableDate: LocalDate = LocalDate.now()
+    val minAvailableDate: LocalDate = LocalDate.now(),
+    val weekStartDay: java.time.DayOfWeek = java.time.DayOfWeek.MONDAY,
+    val nextSummaryDate: LocalDate = LocalDate.now(),
+    val isSummaryAvailable: Boolean = false
 )
 
 enum class CardLayoutMode(val label: String, val description: String) {
@@ -35,18 +39,23 @@ enum class CardLayoutMode(val label: String, val description: String) {
 
 class HomeViewModel(
     private val decisionRepository: DecisionRepository,
-    private val userPreferencesRepository: UserPreferencesRepository
+    private val userPreferencesRepository: UserPreferencesRepository,
+    private val calculateWeeklyScheduleUseCase: CalculateWeeklyScheduleUseCase
 ) : ViewModel() {
 
     private val zoneId: ZoneId = ZoneId.systemDefault()
+    private var firstUseDate: LocalDate = LocalDate.now()
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState
 
     init {
         observeUserName()
+        observePreferences()
+        ensureFirstUseDate()
         loadMinAvailableDate()
         observeDecisionsForCurrentDay()
+        refreshWeeklySchedule()
     }
 
     private fun observeUserName() {
@@ -69,7 +78,11 @@ class HomeViewModel(
                 Instant.ofEpochMilli(it).atZone(zoneId).toLocalDate()
             } ?: LocalDate.now()
 
+            earliestTimestamp?.let { userPreferencesRepository.updateFirstUseDateIfEarlier(it) }
+            earliestTimestamp?.let { firstUseDate = Instant.ofEpochMilli(it).atZone(zoneId).toLocalDate() }
+
             _uiState.update { it.copy(minAvailableDate = minDate) }
+            refreshWeeklySchedule()
         }
     }
 
@@ -125,6 +138,11 @@ class HomeViewModel(
     // ------- MODO BORRADO MÚLTIPLE -------
 
     fun toggleDeleteMode() {
+        val isToday = _uiState.value.selectedDate == LocalDate.now()
+        if (!isToday) {
+            _uiState.update { it.copy(isDeleteMode = false, selectedForDeletion = emptySet()) }
+            return
+        }
         _uiState.update { state ->
             if (state.isDeleteMode) {
                 state.copy(isDeleteMode = false, selectedForDeletion = emptySet())
@@ -136,7 +154,7 @@ class HomeViewModel(
 
     fun toggleDecisionSelection(decisionId: Long) {
         _uiState.update { state ->
-            if (!state.isDeleteMode) return@update state
+            if (!state.isDeleteMode || state.selectedDate != LocalDate.now()) return@update state
 
             val newSet = state.selectedForDeletion.toMutableSet()
             if (newSet.contains(decisionId)) {
@@ -176,5 +194,55 @@ class HomeViewModel(
 
     fun updateCardLayout(mode: CardLayoutMode) {
         _uiState.update { it.copy(cardLayout = mode) }
+        viewModelScope.launch {
+            userPreferencesRepository.setCardLayout(mode.name)
+        }
+    }
+
+    private fun observePreferences() {
+        viewModelScope.launch {
+            userPreferencesRepository.cardLayoutFlow.collect { stored ->
+                val resolved = runCatching { CardLayoutMode.valueOf(stored) }
+                    .getOrDefault(CardLayoutMode.COZY)
+                _uiState.update { it.copy(cardLayout = resolved) }
+            }
+        }
+        viewModelScope.launch {
+            userPreferencesRepository.weekStartDayFlow.collect { weekStart ->
+                _uiState.update { it.copy(weekStartDay = weekStart) }
+                refreshWeeklySchedule()
+            }
+        }
+        viewModelScope.launch {
+            userPreferencesRepository.firstUseLocalDate(zoneId).collect { stored ->
+                stored?.let {
+                    firstUseDate = it
+                    refreshWeeklySchedule()
+                }
+            }
+        }
+    }
+
+    private fun ensureFirstUseDate() {
+        viewModelScope.launch {
+            val stored = userPreferencesRepository.ensureFirstUseDate()
+            firstUseDate = Instant.ofEpochMilli(stored).atZone(zoneId).toLocalDate()
+            refreshWeeklySchedule()
+        }
+    }
+
+    private fun refreshWeeklySchedule() {
+        val weekStart = _uiState.value.weekStartDay
+        val schedule = calculateWeeklyScheduleUseCase(
+            firstUseDate = firstUseDate,
+            weekStartDay = weekStart,
+            today = LocalDate.now()
+        )
+        _uiState.update {
+            it.copy(
+                nextSummaryDate = schedule.nextSummaryDate,
+                isSummaryAvailable = schedule.isSummaryAvailable
+            )
+        }
     }
 }

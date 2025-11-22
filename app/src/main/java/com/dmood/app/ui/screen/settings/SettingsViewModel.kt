@@ -12,7 +12,8 @@ data class SettingsUiState(
     val editedName: String = "",
     val isSaving: Boolean = false,
     val feedbackMessage: String? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val weekStartDay: java.time.DayOfWeek = java.time.DayOfWeek.MONDAY
 )
 
 class SettingsViewModel(
@@ -24,6 +25,7 @@ class SettingsViewModel(
 
     init {
         loadCurrentName()
+        observeWeekStart()
     }
 
     private fun loadCurrentName() {
@@ -33,6 +35,14 @@ class SettingsViewModel(
                 currentName = name,
                 editedName = name
             )
+        }
+    }
+
+    private fun observeWeekStart() {
+        viewModelScope.launch {
+            userPreferencesRepository.weekStartDayFlow.collect { stored ->
+                _uiState.value = _uiState.value.copy(weekStartDay = stored)
+            }
         }
     }
 
@@ -74,5 +84,12 @@ class SettingsViewModel(
 
     fun clearFeedback() {
         _uiState.value = _uiState.value.copy(feedbackMessage = null)
+    }
+
+    fun onWeekStartChange(dayOfWeek: java.time.DayOfWeek) {
+        _uiState.value = _uiState.value.copy(weekStartDay = dayOfWeek, feedbackMessage = null)
+        viewModelScope.launch {
+            userPreferencesRepository.setWeekStartDay(dayOfWeek)
+        }
     }
 }
