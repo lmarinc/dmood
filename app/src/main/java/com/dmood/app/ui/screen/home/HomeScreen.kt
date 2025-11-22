@@ -210,11 +210,13 @@ fun HomeScreen(
                     } else {
                         val heroPages = remember(filteredDecisions, isToday) {
                             buildList {
-                                add(HomeHeroPage.GREETING)
-                                if (filteredDecisions.isNotEmpty()) {
-                                    add(HomeHeroPage.DECISIONS)
+                                if (isToday) {
+                                    add(HomeHeroPage.GREETING)
                                 }
-                                add(HomeHeroPage.ADD)
+                                add(HomeHeroPage.DECISIONS)
+                                if (isToday) {
+                                    add(HomeHeroPage.ADD)
+                                }
                             }
                         }
                         val pagerState = rememberPagerState(pageCount = { heroPages.size })
@@ -628,8 +630,11 @@ private fun AddDecisionCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),

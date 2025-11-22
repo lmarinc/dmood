@@ -2,15 +2,14 @@ package com.dmood.app.ui.screen.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -19,13 +18,12 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -37,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dmood.app.ui.DmoodViewModelFactory
+import com.dmood.app.ui.components.DmoodTopBar
 import java.time.DayOfWeek
 import java.time.format.TextStyle
 import java.util.Locale
@@ -45,6 +44,7 @@ import java.util.Locale
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    onOpenWeeklyHistory: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = viewModel(factory = DmoodViewModelFactory)
 ) {
@@ -55,11 +55,13 @@ fun SettingsScreen(
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = { Text("Ajustes") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+            DmoodTopBar(
+                title = "Ajustes",
+                subtitle = "Personaliza tu espacio",
+                showLogo = true,
+                actions = {
+                    TextButton(onClick = onBack) {
+                        Text("Cerrar", color = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
                 }
             )
@@ -175,6 +177,22 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
+                }
+            }
+
+            SettingsSection(title = "Histórico semanal") {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "Descarga los resúmenes semanales en PDF para revisarlos cuando quieras.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Button(
+                        onClick = onOpenWeeklyHistory,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Abrir histórico")
+                    }
                 }
             }
         }

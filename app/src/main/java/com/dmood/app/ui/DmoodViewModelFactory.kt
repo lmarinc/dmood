@@ -8,6 +8,7 @@ import com.dmood.app.ui.screen.home.HomeViewModel
 import com.dmood.app.ui.screen.onboarding.OnboardingViewModel
 import com.dmood.app.ui.screen.settings.SettingsViewModel
 import com.dmood.app.ui.screen.summary.WeeklySummaryViewModel
+import com.dmood.app.ui.screen.summary.WeeklyHistoryViewModel
 
 object DmoodViewModelFactory : ViewModelProvider.Factory {
 
@@ -40,6 +41,17 @@ object DmoodViewModelFactory : ViewModelProvider.Factory {
                     userPreferencesRepository = locator.userPreferencesRepository,
                     calculateWeeklyScheduleUseCase = locator.calculateWeeklyScheduleUseCase,
                     generateInsightRulesUseCase = locator.generateInsightRulesUseCase
+                ) as T
+            }
+
+            modelClass.isAssignableFrom(WeeklyHistoryViewModel::class.java) -> {
+                WeeklyHistoryViewModel(
+                    decisionRepository = locator.decisionRepository,
+                    buildWeeklySummaryUseCase = locator.buildWeeklySummaryUseCase,
+                    extractWeeklyHighlightsUseCase = locator.extractWeeklyHighlightsUseCase,
+                    calculateWeeklyScheduleUseCase = locator.calculateWeeklyScheduleUseCase,
+                    generateInsightRulesUseCase = locator.generateInsightRulesUseCase,
+                    userPreferencesRepository = locator.userPreferencesRepository
                 ) as T
             }
 

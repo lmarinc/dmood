@@ -26,7 +26,8 @@ data class WeeklySummaryUiState(
     val userName: String? = null,
     val insights: List<com.dmood.app.domain.usecase.InsightRuleResult> = emptyList(),
     val nextSummaryDate: LocalDate? = null,
-    val isSummaryAvailable: Boolean = false
+    val isSummaryAvailable: Boolean = false,
+    val isDemo: Boolean = false
 )
 
 class WeeklySummaryViewModel(
@@ -44,6 +45,7 @@ class WeeklySummaryViewModel(
     private val zoneId: ZoneId = ZoneId.systemDefault()
     private var firstUseDate: LocalDate = LocalDate.now()
     private var weekStartDay: DayOfWeek = DayOfWeek.MONDAY
+    private var hasPreferencesLoaded: Boolean = false
 
     init {
         observeUserName()
@@ -61,17 +63,29 @@ class WeeklySummaryViewModel(
     private fun observeUserPreferences() {
         viewModelScope.launch {
             userPreferencesRepository.firstUseLocalDate(zoneId).collect { stored ->
-                stored?.let { firstUseDate = it }
+                stored?.let {
+                    firstUseDate = it
+                    triggerReloadIfReady()
+                }
             }
         }
         viewModelScope.launch {
             userPreferencesRepository.weekStartDayFlow.collect { stored ->
                 weekStartDay = stored
+                triggerReloadIfReady()
             }
         }
         viewModelScope.launch {
             val stored = userPreferencesRepository.ensureFirstUseDate()
             firstUseDate = Instant.ofEpochMilli(stored).atZone(zoneId).toLocalDate()
+            hasPreferencesLoaded = true
+            triggerReloadIfReady()
+        }
+    }
+
+    private fun triggerReloadIfReady() {
+        if (hasPreferencesLoaded && !_uiState.value.isLoading) {
+            loadWeeklySummary()
         }
     }
 
@@ -79,7 +93,8 @@ class WeeklySummaryViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
                 isLoading = true,
-                errorMessage = null
+                errorMessage = null,
+                isDemo = false
             )
 
             try {
@@ -100,7 +115,8 @@ class WeeklySummaryViewModel(
                         highlight = null,
                         errorMessage = "Tu próximo resumen estará listo el ${schedule.nextSummaryDate}",
                         nextSummaryDate = schedule.nextSummaryDate,
-                        isSummaryAvailable = false
+                        isSummaryAvailable = false,
+                        isDemo = false
                     )
                     return@launch
                 }
@@ -123,7 +139,8 @@ class WeeklySummaryViewModel(
                     errorMessage = null,
                     insights = insights,
                     nextSummaryDate = schedule.nextSummaryDate,
-                    isSummaryAvailable = schedule.isSummaryAvailable
+                    isSummaryAvailable = schedule.isSummaryAvailable,
+                    isDemo = false
                 )
             } catch (e: Exception) {
                 _uiState.value = WeeklySummaryUiState(
@@ -132,9 +149,54 @@ class WeeklySummaryViewModel(
                     highlight = null,
                     errorMessage = "No se pudo cargar el resumen semanal.",
                     nextSummaryDate = null,
-                    isSummaryAvailable = false
+                    isSummaryAvailable = false,
+                    isDemo = false
                 )
             }
         }
+    }
+
+    fun loadDemoSummary() {
+        val now = LocalDate.now()
+        val startDate = now.minusDays(7).atStartOfDay(zoneId).toInstant().toEpochMilli()
+        val endDate = now.atStartOfDay(zoneId).toInstant().toEpochMilli()
+
+        val demoSummary = WeeklySummary(
+            startDate = startDate,
+            endDate = endDate,
+            totalDecisions = 8,
+            calmPercentage = 62f,
+            impulsivePercentage = 25f,
+            neutralPercentage = 13f,
+            dailyMoods = mapOf(
+                "Lunes" to com.dmood.app.domain.usecase.DailyMood.POSITIVO,
+                "Miércoles" to com.dmood.app.domain.usecase.DailyMood.NEUTRO,
+                "Viernes" to com.dmood.app.domain.usecase.DailyMood.NEGATIVO
+            ),
+            categoryDistribution = mapOf(
+                com.dmood.app.domain.model.CategoryType.PERSONAL to 4,
+                com.dmood.app.domain.model.CategoryType.TRABAJO to 3,
+                com.dmood.app.domain.model.CategoryType.RELACIONES to 1
+            )
+        )
+
+        val demoHighlight = WeeklyHighlight(
+            strongestPositiveDay = "Lunes",
+            strongestNegativeDay = "Viernes",
+            mostFrequentCategory = com.dmood.app.domain.model.CategoryType.PERSONAL,
+            emotionalTrend = "Ejemplo de semana equilibrada"
+        )
+
+        _uiState.value = WeeklySummaryUiState(
+            isLoading = false,
+            summary = demoSummary,
+            highlight = demoHighlight,
+            errorMessage = null,
+            userName = _uiState.value.userName,
+            insights = emptyList(),
+            nextSummaryDate = _uiState.value.nextSummaryDate,
+            isSummaryAvailable = true,
+            isDemo = true
+        )
     }
 }
