@@ -56,15 +56,7 @@ fun FaqScreen(modifier: Modifier = Modifier) {
         modifier = modifier,
         topBar = {
             DmoodTopBar(
-                title = "Guía D-Mood",
-                subtitle = "Conceptos rápidos",
-                content = {
-                    Text(
-                        text = "Consejos para sacarle partido a la app.",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
-                    )
-                }
+                title = "Guía D-Mood"
             )
         }
     ) { innerPadding ->

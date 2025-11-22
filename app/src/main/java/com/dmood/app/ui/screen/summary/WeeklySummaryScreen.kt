@@ -82,19 +82,10 @@ fun WeeklySummaryScreen(
         topBar = {
             DmoodTopBar(
                 title = "Resumen semanal",
-                subtitle = weekRange ?: "Revisa tu progreso",
                 actions = {
                     IconButton(onClick = onBack) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
                     }
-                },
-                content = {
-                    Text(
-                        text = nextSummaryFriendly?.let { "Próximo corte: $it" }
-                            ?: "Sigue registrando decisiones para desbloquear tu resumen.",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
-                    )
                 }
             )
         }
@@ -373,10 +364,15 @@ private fun WeeklySummaryHeaderCard(
             modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
+                )
+                Text(
+                    text = "Un vistazo rápido a tu semana emocional.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 weekRange?.let {
                     Text(

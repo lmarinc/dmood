@@ -1,8 +1,12 @@
 package com.dmood.app.ui.screen.summary
 
 import android.content.Context
+import android.content.ContentValues
 import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dmood.app.domain.model.Decision
@@ -103,16 +107,42 @@ class WeeklyHistoryViewModel(
 
                 document.finishPage(page)
 
-                val fileName = "resumen_${startDate}_${endDate}.pdf"
-                val targetFile = File(context.cacheDir, fileName)
-                targetFile.outputStream().use { output ->
-                    document.writeTo(output)
+                val displayName = "dmood_resumen_${startDate}_${endDate}.pdf"
+                val savedPath = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    val values = ContentValues().apply {
+                        put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
+                        put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf")
+                        put(
+                            MediaStore.MediaColumns.RELATIVE_PATH,
+                            Environment.DIRECTORY_DOWNLOADS + "/Dmood"
+                        )
+                    }
+
+                    val uri = context.contentResolver.insert(
+                        MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                        values
+                    ) ?: throw IllegalStateException("No se pudo crear el archivo de destino")
+
+                    context.contentResolver.openOutputStream(uri)?.use { output ->
+                        document.writeTo(output)
+                    } ?: throw IllegalStateException("No se pudo abrir la ruta de descarga")
+
+                    uri.toString()
+                } else {
+                    val downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                    if (!downloads.exists()) downloads.mkdirs()
+                    val targetFile = File(downloads, displayName)
+                    targetFile.outputStream().use { output ->
+                        document.writeTo(output)
+                    }
+                    targetFile.absolutePath
                 }
+
                 document.close()
 
                 withContext(Dispatchers.Main) {
                     _uiState.value = _uiState.value.copy(
-                        feedbackMessage = "PDF guardado en ${targetFile.absolutePath}",
+                        feedbackMessage = "PDF guardado en $savedPath",
                         errorMessage = null
                     )
                 }

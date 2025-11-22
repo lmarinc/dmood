@@ -514,10 +514,6 @@ private fun DailyDecisionsCard(
     onToggleSelection: (Long) -> Unit,
     onClearFilters: () -> Unit
 ) {
-    val accentColors = listOf(
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-        MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f)
-    )
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -529,7 +525,6 @@ private fun DailyDecisionsCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Brush.verticalGradient(accentColors))
                 .padding(horizontal = 20.dp, vertical = 18.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {

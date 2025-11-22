@@ -57,18 +57,10 @@ fun SettingsScreen(
         topBar = {
             DmoodTopBar(
                 title = "Ajustes",
-                subtitle = "Configura tu experiencia",
                 actions = {
                     IconButton(onClick = onBack) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
                     }
-                },
-                content = {
-                    Text(
-                        text = "Personaliza avisos, semana y herramientas avanzadas.",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
-                    )
                 }
             )
         }

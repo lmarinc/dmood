@@ -52,18 +52,10 @@ fun WeeklyHistoryScreen(
         topBar = {
             DmoodTopBar(
                 title = "Histórico semanal",
-                subtitle = "Descarga tus resúmenes",
                 actions = {
                     IconButton(onClick = onBack) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
                     }
-                },
-                content = {
-                    Text(
-                        text = "Genera un PDF simple con la información registrada.",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
-                    )
                 }
             )
         }
