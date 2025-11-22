@@ -27,7 +27,8 @@ fun DmoodTopBar(
     subtitle: String? = null,
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit = {},
-    showLogo: Boolean = false
+    showLogo: Boolean = false,
+    navigationIcon: (@Composable () -> Unit)? = null
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -51,6 +52,9 @@ fun DmoodTopBar(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    navigationIcon?.let {
+                        it()
+                    }
                     if (showLogo) {
                         Image(
                             painter = painterResource(id = R.drawable.ic_logo),

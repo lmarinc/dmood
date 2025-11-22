@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -210,11 +211,13 @@ fun HomeScreen(
                     } else {
                         val heroPages = remember(filteredDecisions, isToday) {
                             buildList {
-                                add(HomeHeroPage.GREETING)
-                                if (filteredDecisions.isNotEmpty()) {
-                                    add(HomeHeroPage.DECISIONS)
+                                if (isToday) {
+                                    add(HomeHeroPage.GREETING)
                                 }
-                                add(HomeHeroPage.ADD)
+                                add(HomeHeroPage.DECISIONS)
+                                if (isToday) {
+                                    add(HomeHeroPage.ADD)
+                                }
                             }
                         }
                         val pagerState = rememberPagerState(pageCount = { heroPages.size })
@@ -385,7 +388,9 @@ private fun GreetingAndSummaryCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 220.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface
@@ -509,20 +514,17 @@ private fun DailyDecisionsCard(
     onToggleSelection: (Long) -> Unit,
     onClearFilters: () -> Unit
 ) {
-    val accentColors = listOf(
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-        MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f)
-    )
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 240.dp),
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Brush.verticalGradient(accentColors))
                 .padding(horizontal = 20.dp, vertical = 18.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -626,10 +628,12 @@ private fun AddDecisionCard(
     nextSummaryDate: String
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 220.dp),
         shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
