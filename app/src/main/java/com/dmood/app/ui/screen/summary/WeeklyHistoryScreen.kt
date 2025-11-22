@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -36,7 +34,6 @@ import java.util.Locale
 
 @Composable
 fun WeeklyHistoryScreen(
-    onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: WeeklyHistoryViewModel = viewModel(factory = DmoodViewModelFactory)
 ) {
@@ -51,12 +48,7 @@ fun WeeklyHistoryScreen(
         modifier = modifier,
         topBar = {
             DmoodTopBar(
-                title = "Histórico semanal",
-                actions = {
-                    IconButton(onClick = onBack) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                    }
-                }
+                title = "Histórico semanal"
             )
         }
     ) { innerPadding ->
@@ -110,11 +102,21 @@ fun WeeklyHistoryScreen(
                                 text = "Semana del ${start.format(formatter)} al ${end.format(formatter)}",
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
                             )
-                            Text(
-                                text = "${entry.decisions.size} decisiones registradas",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            entry.summary?.let { summary ->
+                                Text(
+                                    text = "Calmadas: ${summary.calmPercentage.toInt()}%  ·  Impulsivas: ${summary.impulsivePercentage.toInt()}%",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                val topCategory = summary.categoryDistribution.entries.maxByOrNull { it.value }
+                                topCategory?.let {
+                                    Text(
+                                        text = "Área predominante: ${it.key.displayName}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {

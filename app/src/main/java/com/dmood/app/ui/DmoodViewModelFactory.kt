@@ -47,7 +47,8 @@ object DmoodViewModelFactory : ViewModelProvider.Factory {
             modelClass.isAssignableFrom(WeeklyHistoryViewModel::class.java) -> {
                 WeeklyHistoryViewModel(
                     decisionRepository = locator.decisionRepository,
-                    userPreferencesRepository = locator.userPreferencesRepository
+                    userPreferencesRepository = locator.userPreferencesRepository,
+                    buildWeeklySummaryUseCase = locator.buildWeeklySummaryUseCase
                 ) as T
             }
 

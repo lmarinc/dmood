@@ -66,25 +66,16 @@ fun AppNavHost(
         }
         composable(Screen.WeeklySummary.route) {
             WeeklySummaryScreen(
-                onBack = {
-                    navController.popBackStack()
-                },
                 onOpenHistory = {
                     navController.navigate(Screen.WeeklyHistory.route)
                 }
             )
         }
         composable(Screen.WeeklyHistory.route) {
-            WeeklyHistoryScreen(
-                onBack = { navController.popBackStack() }
-            )
+            WeeklyHistoryScreen()
         }
         composable(Screen.Settings.route) {
-            SettingsScreen(
-                onBack = {
-                    navController.popBackStack()
-                }
-            )
+            SettingsScreen()
         }
         composable(Screen.Faq.route) {
             FaqScreen()

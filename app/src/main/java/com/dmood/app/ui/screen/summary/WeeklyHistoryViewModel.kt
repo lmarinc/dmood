@@ -12,6 +12,8 @@ import androidx.lifecycle.viewModelScope
 import com.dmood.app.domain.model.Decision
 import com.dmood.app.domain.repository.DecisionRepository
 import com.dmood.app.data.preferences.UserPreferencesRepository
+import com.dmood.app.domain.usecase.BuildWeeklySummaryUseCase
+import com.dmood.app.domain.usecase.WeeklySummary
 import java.io.File
 import java.time.DayOfWeek
 import java.time.Instant
@@ -28,7 +30,8 @@ import kotlinx.coroutines.withContext
 data class WeeklyHistoryEntry(
     val windowStart: Long,
     val windowEnd: Long,
-    val decisions: List<Decision>
+    val decisions: List<Decision>,
+    val summary: WeeklySummary?
 )
 
 data class WeeklyHistoryUiState(
@@ -40,7 +43,8 @@ data class WeeklyHistoryUiState(
 
 class WeeklyHistoryViewModel(
     private val decisionRepository: DecisionRepository,
-    private val userPreferencesRepository: UserPreferencesRepository
+    private val userPreferencesRepository: UserPreferencesRepository,
+    private val buildWeeklySummaryUseCase: BuildWeeklySummaryUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(WeeklyHistoryUiState())
@@ -61,10 +65,21 @@ class WeeklyHistoryViewModel(
                 val grouped = decisions.groupBy { decision ->
                     decisionWeekAnchor(decision.timestamp, weekStartDay)
                 }.map { (anchor, items) ->
+                    val start = anchor.minusDays(7).atStartOfDay(zoneId).toInstant().toEpochMilli()
+                    val end = anchor.minusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
+                    val summary = runCatching {
+                        buildWeeklySummaryUseCase(
+                            decisions = items,
+                            startDate = start,
+                            endDate = end
+                        )
+                    }.getOrNull()
+
                     WeeklyHistoryEntry(
-                        windowStart = anchor.minusDays(7).atStartOfDay(zoneId).toInstant().toEpochMilli(),
-                        windowEnd = anchor.minusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli(),
-                        decisions = items
+                        windowStart = start,
+                        windowEnd = end,
+                        decisions = items,
+                        summary = summary
                     )
                 }.sortedByDescending { it.windowStart }
 
@@ -88,6 +103,11 @@ class WeeklyHistoryViewModel(
                 val formatter = DateTimeFormatter.ofPattern("dd MMM yyyy")
                 val startDate = Instant.ofEpochMilli(entry.windowStart).atZone(zoneId).toLocalDate()
                 val endDate = Instant.ofEpochMilli(entry.windowEnd).atZone(zoneId).toLocalDate()
+                val summary = entry.summary ?: buildWeeklySummaryUseCase(
+                    decisions = entry.decisions,
+                    startDate = entry.windowStart,
+                    endDate = entry.windowEnd
+                )
 
                 val document = PdfDocument()
                 val pageInfo = PdfDocument.PageInfo.Builder(612, 792, 1).create()
@@ -95,14 +115,33 @@ class WeeklyHistoryViewModel(
                 val canvas = page.canvas
                 val paint = Paint().apply { textSize = 16f }
 
-                canvas.drawText("Resumen semanal", 40f, 40f, paint)
-                canvas.drawText("Período: ${startDate.format(formatter)} - ${endDate.format(formatter)}", 40f, 70f, paint)
-                canvas.drawText("Decisiones registradas: ${entry.decisions.size}", 40f, 100f, paint)
+                canvas.drawText("Resumen semanal", 40f, 50f, paint)
+                canvas.drawText("Período: ${startDate.format(formatter)} - ${endDate.format(formatter)}", 40f, 80f, paint)
 
-                var y = 140f
-                entry.decisions.take(10).forEachIndexed { index, decision ->
-                    canvas.drawText("${index + 1}. ${decision.text}", 40f, y, paint)
+                var y = 120f
+                canvas.drawText("Total de decisiones: ${summary.totalDecisions}", 40f, y, paint)
+                y += 26f
+                canvas.drawText("Calmadas: ${summary.calmPercentage.toInt()}%", 40f, y, paint)
+                canvas.drawText("Impulsivas: ${summary.impulsivePercentage.toInt()}%", 240f, y, paint)
+                y += 26f
+
+                summary.categoryDistribution
+                    .entries
+                    .sortedByDescending { it.value }
+                    .take(3)
+                    .forEach { (category, count) ->
+                        canvas.drawText("${category.displayName}: $count", 40f, y, paint)
+                        y += 24f
+                    }
+
+                if (summary.dailyMoods.isNotEmpty()) {
+                    y += 10f
+                    canvas.drawText("Estado por día:", 40f, y, paint)
                     y += 24f
+                    summary.dailyMoods.entries.take(5).forEach { (day, mood) ->
+                        canvas.drawText("$day · ${mood.emotionSummary}", 40f, y, paint)
+                        y += 22f
+                    }
                 }
 
                 document.finishPage(page)

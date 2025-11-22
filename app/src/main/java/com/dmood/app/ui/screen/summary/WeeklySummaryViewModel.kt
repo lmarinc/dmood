@@ -108,9 +108,13 @@ class WeeklySummaryViewModel(
                 )
 
                 val start = schedule.windowStart.atStartOfDay(zoneId).toInstant().toEpochMilli()
-                val end = schedule.windowEnd.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
+                val end = (if (devEnabled) minOf(schedule.windowEnd, today) else schedule.windowEnd)
+                    .plusDays(1)
+                    .atStartOfDay(zoneId)
+                    .toInstant()
+                    .toEpochMilli()
 
-                if (!schedule.isSummaryAvailable) {
+                if (!schedule.isSummaryAvailable && !devEnabled) {
                     _uiState.value = WeeklySummaryUiState(
                         isLoading = false,
                         summary = null,
@@ -141,7 +145,7 @@ class WeeklySummaryViewModel(
                     errorMessage = null,
                     insights = insights,
                     nextSummaryDate = schedule.nextSummaryDate,
-                    isSummaryAvailable = schedule.isSummaryAvailable,
+                    isSummaryAvailable = schedule.isSummaryAvailable || devEnabled,
                     developerModeEnabled = devEnabled
                 )
             } catch (e: Exception) {
