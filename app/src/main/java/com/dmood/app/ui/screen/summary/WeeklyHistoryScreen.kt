@@ -2,7 +2,6 @@ package com.dmood.app.ui.screen.summary
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -11,8 +10,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -22,7 +19,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dmood.app.ui.DmoodViewModelFactory
@@ -100,29 +96,10 @@ fun WeeklyHistoryScreen(
                         ) {
                             Text(
                                 text = "Semana del ${start.format(formatter)} al ${end.format(formatter)}",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                                style = MaterialTheme.typography.titleMedium
                             )
-                            entry.summary?.let { summary ->
-                                Text(
-                                    text = "Calmadas: ${summary.calmPercentage.toInt()}%  ·  Impulsivas: ${summary.impulsivePercentage.toInt()}%",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                val topCategory = summary.categoryDistribution.entries.maxByOrNull { it.value }
-                                topCategory?.let {
-                                    Text(
-                                        text = "Área predominante: ${it.key.displayName}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Button(onClick = { viewModel.generatePdf(context, entry) }) {
-                                    Text("Descargar PDF")
-                                }
+                            Button(onClick = { viewModel.generatePdf(context, entry) }) {
+                                Text("Descargar PDF")
                             }
                         }
                     }

@@ -113,34 +113,55 @@ class WeeklyHistoryViewModel(
                 val pageInfo = PdfDocument.PageInfo.Builder(612, 792, 1).create()
                 val page = document.startPage(pageInfo)
                 val canvas = page.canvas
-                val paint = Paint().apply { textSize = 16f }
+                val titlePaint = Paint().apply {
+                    textSize = 20f
+                    isFakeBoldText = true
+                }
+                val bodyPaint = Paint().apply {
+                    textSize = 15f
+                }
+                val accentPaint = Paint().apply {
+                    textSize = 14f
+                    isFakeBoldText = true
+                }
 
-                canvas.drawText("Resumen semanal", 40f, 50f, paint)
-                canvas.drawText("Período: ${startDate.format(formatter)} - ${endDate.format(formatter)}", 40f, 80f, paint)
+                canvas.drawText("Resumen semanal", 40f, 60f, titlePaint)
+                canvas.drawText(
+                    "Período: ${startDate.format(formatter)} - ${endDate.format(formatter)}",
+                    40f,
+                    88f,
+                    bodyPaint
+                )
 
-                var y = 120f
-                canvas.drawText("Total de decisiones: ${summary.totalDecisions}", 40f, y, paint)
-                y += 26f
-                canvas.drawText("Calmadas: ${summary.calmPercentage.toInt()}%", 40f, y, paint)
-                canvas.drawText("Impulsivas: ${summary.impulsivePercentage.toInt()}%", 240f, y, paint)
-                y += 26f
+                var y = 130f
+                canvas.drawLine(40f, y, 560f, y, bodyPaint)
+                y += 30f
 
+                canvas.drawText("Tono emocional", 40f, y, accentPaint)
+                y += 24f
+                canvas.drawText("Calmadas: ${summary.calmPercentage.toInt()}%", 40f, y, bodyPaint)
+                y += 20f
+                canvas.drawText("Impulsivas: ${summary.impulsivePercentage.toInt()}%", 40f, y, bodyPaint)
+                y += 34f
+
+                canvas.drawText("Áreas presentes", 40f, y, accentPaint)
+                y += 24f
                 summary.categoryDistribution
                     .entries
                     .sortedByDescending { it.value }
                     .take(3)
                     .forEach { (category, count) ->
-                        canvas.drawText("${category.displayName}: $count", 40f, y, paint)
-                        y += 24f
+                        canvas.drawText("${category.displayName}: ${((count / summary.totalDecisions.toFloat()) * 100).toInt()}%", 40f, y, bodyPaint)
+                        y += 20f
                     }
 
                 if (summary.dailyMoods.isNotEmpty()) {
-                    y += 10f
-                    canvas.drawText("Estado por día:", 40f, y, paint)
+                    y += 24f
+                    canvas.drawText("Estado por día", 40f, y, accentPaint)
                     y += 24f
                     summary.dailyMoods.entries.take(5).forEach { (day, mood) ->
-                        canvas.drawText("$day · ${mood.emotionSummary}", 40f, y, paint)
-                        y += 22f
+                        canvas.drawText("$day · ${mood.emotionSummary}", 40f, y, bodyPaint)
+                        y += 20f
                     }
                 }
 

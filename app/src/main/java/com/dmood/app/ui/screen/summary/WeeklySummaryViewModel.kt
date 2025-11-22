@@ -81,7 +81,11 @@ class WeeklySummaryViewModel(
     private fun observeDeveloperMode() {
         viewModelScope.launch {
             userPreferencesRepository.developerModeFlow.collect { enabled ->
+                val previous = _uiState.value.developerModeEnabled
                 _uiState.value = _uiState.value.copy(developerModeEnabled = enabled)
+                if (enabled != previous) {
+                    loadWeeklySummary()
+                }
             }
         }
     }
