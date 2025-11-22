@@ -17,12 +17,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.dmood.app.ui.components.DmoodTopBar
 
 private data class FaqEntry(val title: String, val body: String)
 
@@ -55,8 +55,16 @@ fun FaqScreen(modifier: Modifier = Modifier) {
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = { Text("Guía D-Mood") }
+            DmoodTopBar(
+                title = "Guía D-Mood",
+                subtitle = "Conceptos rápidos",
+                content = {
+                    Text(
+                        text = "Consejos para sacarle partido a la app.",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                    )
+                }
             )
         }
     ) { innerPadding ->
