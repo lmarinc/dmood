@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -210,11 +211,10 @@ fun HomeScreen(
                     } else {
                         val heroPages = remember(filteredDecisions, isToday) {
                             buildList {
-                                add(HomeHeroPage.GREETING)
-                                if (filteredDecisions.isNotEmpty()) {
-                                    add(HomeHeroPage.DECISIONS)
+                                if (isToday) {
+                                    add(HomeHeroPage.GREETING)
                                 }
-                                add(HomeHeroPage.ADD)
+                                add(HomeHeroPage.DECISIONS)
                             }
                         }
                         val pagerState = rememberPagerState(pageCount = { heroPages.size })
@@ -251,15 +251,6 @@ fun HomeScreen(
                                             onDecisionClick = onDecisionClick,
                                             onToggleSelection = viewModel::toggleDecisionSelection,
                                             onClearFilters = { viewModel.updateCategoryFilter(null) }
-                                        )
-                                    },
-                                    addDecision = {
-                                        AddDecisionCard(
-                                            isToday = isToday,
-                                            hasDecisions = filteredDecisions.isNotEmpty(),
-                                            onAddDecisionClick = onAddDecisionClick,
-                                            daysUntilSummary = daysUntilSummary,
-                                            nextSummaryDate = formattedSummaryDate
                                         )
                                     }
                                 )
@@ -385,7 +376,9 @@ private fun GreetingAndSummaryCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 220.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface
@@ -460,8 +453,7 @@ private fun HomeHeroPager(
     pages: List<HomeHeroPage>,
     indicatorColor: Color,
     greeting: @Composable () -> Unit,
-    decisions: @Composable () -> Unit,
-    addDecision: @Composable () -> Unit
+    decisions: @Composable () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         HorizontalPager(
@@ -473,7 +465,6 @@ private fun HomeHeroPager(
             when (pages[page]) {
                 HomeHeroPage.GREETING -> greeting()
                 HomeHeroPage.DECISIONS -> decisions()
-                HomeHeroPage.ADD -> addDecision()
             }
         }
 
@@ -509,20 +500,17 @@ private fun DailyDecisionsCard(
     onToggleSelection: (Long) -> Unit,
     onClearFilters: () -> Unit
 ) {
-    val accentColors = listOf(
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-        MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f)
-    )
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 220.dp),
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Brush.verticalGradient(accentColors))
                 .padding(horizontal = 20.dp, vertical = 18.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -618,54 +606,7 @@ private fun DailyDecisionsCard(
 }
 
 @Composable
-private fun AddDecisionCard(
-    isToday: Boolean,
-    hasDecisions: Boolean,
-    onAddDecisionClick: () -> Unit,
-    daysUntilSummary: Int,
-    nextSummaryDate: String
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = if (hasDecisions) "Suma más decisiones" else "Añade tu primera decisión",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
-            )
-            Text(
-                text = if (isToday)
-                    "Cada registro mejora tu resumen semanal. Próximo corte: $nextSummaryDate."
-                else
-                    "Solo puedes añadir decisiones al día actual.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Button(
-                onClick = onAddDecisionClick,
-                enabled = isToday,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(if (isToday) "Registrar decisión" else "Solo disponible hoy")
-            }
-            if (daysUntilSummary > 0) {
-                Text(
-                    text = "Te quedan $daysUntilSummary día(s) para pulir tu resumen.",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-        }
-    }
-}
-
-private enum class HomeHeroPage { GREETING, DECISIONS, ADD }
+private enum class HomeHeroPage { GREETING, DECISIONS }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

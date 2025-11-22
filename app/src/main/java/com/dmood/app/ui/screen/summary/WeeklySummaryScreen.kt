@@ -18,19 +18,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -46,6 +42,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dmood.app.domain.model.CategoryType
 import com.dmood.app.ui.DmoodViewModelFactory
 import com.dmood.app.domain.usecase.InsightRuleResult
+import com.dmood.app.ui.components.DmoodTopBar
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -54,7 +51,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WeeklySummaryScreen(
-    onBack: () -> Unit,
+    onOpenHistory: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: WeeklySummaryViewModel = viewModel(factory = DmoodViewModelFactory)
 ) {
@@ -78,13 +75,8 @@ fun WeeklySummaryScreen(
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = { Text("Resumen semanal") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                    }
-                }
+            DmoodTopBar(
+                title = "Resumen semanal"
             )
         }
     ) { innerPadding ->
@@ -95,18 +87,15 @@ fun WeeklySummaryScreen(
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = uiState.userName?.let { "Tu semana, $it" } ?: "Tu semana",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.SemiBold
+            WeeklySummaryHeaderCard(
+                title = uiState.userName?.let { "Tu semana, $it" } ?: "Tu semana",
+                weekRange = weekRange,
+                nextSummaryFriendly = nextSummaryFriendly,
+                developerModeEnabled = uiState.developerModeEnabled,
+                onForceBuild = viewModel::forceBuildSummary,
+                onOpenHistory = onOpenHistory,
+                isLoading = uiState.isLoading
             )
-            if (weekRange != null) {
-                Text(
-                    text = weekRange,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
 
             when {
                 uiState.isLoading -> {
@@ -337,6 +326,72 @@ private fun HighlightDaysCard(highlight: com.dmood.app.domain.usecase.WeeklyHigh
                     text = "Área más presente: ${it.displayName}",
                     style = MaterialTheme.typography.bodyMedium
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun WeeklySummaryHeaderCard(
+    title: String,
+    weekRange: String?,
+    nextSummaryFriendly: String?,
+    developerModeEnabled: Boolean,
+    onForceBuild: () -> Unit,
+    onOpenHistory: () -> Unit,
+    isLoading: Boolean
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
+                )
+                Text(
+                    text = "Un vistazo rápido a tu semana emocional.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                weekRange?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                nextSummaryFriendly?.let {
+                    Text(
+                        text = "Próximo resumen: $it",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(onClick = onOpenHistory) {
+                    Text("Histórico semanal")
+                }
+                if (developerModeEnabled) {
+                    Button(onClick = onForceBuild, enabled = !isLoading) {
+                        Text(if (isLoading) "Generando..." else "Forzar resumen")
+                    }
+                }
             }
         }
     }
