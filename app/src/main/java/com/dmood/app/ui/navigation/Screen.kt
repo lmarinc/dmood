@@ -11,5 +11,6 @@ sealed class Screen(val route: String) {
     }
     object WeeklySummary : Screen("weekly_summary")
     object Settings : Screen("settings")
+    object WeeklyHistory : Screen("weekly_history")
     object Faq : Screen("faq")
 }

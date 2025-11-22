@@ -16,6 +16,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 data class WeeklySummaryUiState(
@@ -83,6 +84,8 @@ class WeeklySummaryViewModel(
             )
 
             try {
+                syncPreferences()
+
                 val today = LocalDate.now()
                 val schedule = calculateWeeklyScheduleUseCase(
                     firstUseDate = firstUseDate,
@@ -136,5 +139,11 @@ class WeeklySummaryViewModel(
                 )
             }
         }
+    }
+
+    private suspend fun syncPreferences() {
+        val storedFirstUse = userPreferencesRepository.ensureFirstUseDate()
+        firstUseDate = Instant.ofEpochMilli(storedFirstUse).atZone(zoneId).toLocalDate()
+        weekStartDay = userPreferencesRepository.weekStartDayFlow.first()
     }
 }

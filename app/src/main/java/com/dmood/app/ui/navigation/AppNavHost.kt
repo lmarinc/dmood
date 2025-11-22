@@ -11,6 +11,7 @@ import com.dmood.app.ui.screen.faq.FaqScreen
 import com.dmood.app.ui.screen.home.HomeScreen
 import com.dmood.app.ui.screen.onboarding.OnboardingScreen
 import com.dmood.app.ui.screen.settings.SettingsScreen
+import com.dmood.app.ui.screen.summary.WeeklyHistoryScreen
 import com.dmood.app.ui.screen.summary.WeeklySummaryScreen
 
 @Composable
@@ -74,7 +75,15 @@ fun AppNavHost(
             SettingsScreen(
                 onBack = {
                     navController.popBackStack()
+                },
+                onOpenWeeklyHistory = {
+                    navController.navigate(Screen.WeeklyHistory.route)
                 }
+            )
+        }
+        composable(Screen.WeeklyHistory.route) {
+            WeeklyHistoryScreen(
+                onBack = { navController.popBackStack() }
             )
         }
         composable(Screen.Faq.route) {

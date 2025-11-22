@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -53,6 +54,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.animation.animateContentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -210,11 +212,9 @@ fun HomeScreen(
                     } else {
                         val heroPages = remember(filteredDecisions, isToday) {
                             buildList {
-                                add(HomeHeroPage.GREETING)
-                                if (filteredDecisions.isNotEmpty()) {
-                                    add(HomeHeroPage.DECISIONS)
-                                }
-                                add(HomeHeroPage.ADD)
+                                if (isToday) add(HomeHeroPage.GREETING)
+                                add(HomeHeroPage.DECISIONS)
+                                if (isToday) add(HomeHeroPage.ADD)
                             }
                         }
                         val pagerState = rememberPagerState(pageCount = { heroPages.size })
@@ -385,7 +385,9 @@ private fun GreetingAndSummaryCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 220.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface
@@ -470,10 +472,12 @@ private fun HomeHeroPager(
             contentPadding = PaddingValues(horizontal = 4.dp),
             flingBehavior = PagerDefaults.flingBehavior(state = pagerState)
         ) { page ->
-            when (pages[page]) {
-                HomeHeroPage.GREETING -> greeting()
-                HomeHeroPage.DECISIONS -> decisions()
-                HomeHeroPage.ADD -> addDecision()
+            Box(modifier = Modifier.animateContentSize()) {
+                when (pages[page]) {
+                    HomeHeroPage.GREETING -> greeting()
+                    HomeHeroPage.DECISIONS -> decisions()
+                    HomeHeroPage.ADD -> addDecision()
+                }
             }
         }
 
@@ -626,10 +630,15 @@ private fun AddDecisionCard(
     nextSummaryDate: String
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 220.dp),
         shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
