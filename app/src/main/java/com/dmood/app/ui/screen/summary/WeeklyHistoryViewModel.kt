@@ -161,7 +161,8 @@ class WeeklyHistoryViewModel(
                     canvas.drawText("Estado por día", 40f, y, accentPaint)
                     y += 24f
                     summary.dailyMoods.entries.take(5).forEach { (day, mood) ->
-                        canvas.drawText("$day · ${mood.toDisplayName()}", 40f, y, bodyPaint)
+                        // Se usa toString() para evitar referencias a propiedades que pueden no existir en DailyMood
+                        canvas.drawText("$day · ${mood.toString()}", 40f, y, bodyPaint)
                         y += 20f
                     }
                 }
@@ -225,11 +226,4 @@ class WeeklyHistoryViewModel(
     private fun decisionWeekAnchor(timestamp: Long, weekStartDay: DayOfWeek) =
         Instant.ofEpochMilli(timestamp).atZone(zoneId).toLocalDate()
             .with(TemporalAdjusters.nextOrSame(weekStartDay))
-
-    private fun DailyMood.toDisplayName(): String = when (this) {
-        DailyMood.POSITIVO -> "positivo"
-        DailyMood.NEGATIVO -> "negativo"
-        DailyMood.NEUTRO -> "neutro"
-        DailyMood.NORMAL -> "normal"
-    }
 }
