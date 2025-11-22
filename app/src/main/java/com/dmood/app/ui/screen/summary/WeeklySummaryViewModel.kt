@@ -16,6 +16,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 data class WeeklySummaryUiState(
@@ -26,7 +27,8 @@ data class WeeklySummaryUiState(
     val userName: String? = null,
     val insights: List<com.dmood.app.domain.usecase.InsightRuleResult> = emptyList(),
     val nextSummaryDate: LocalDate? = null,
-    val isSummaryAvailable: Boolean = false
+    val isSummaryAvailable: Boolean = false,
+    val isDeveloperMode: Boolean = false
 )
 
 class WeeklySummaryViewModel(
@@ -73,9 +75,14 @@ class WeeklySummaryViewModel(
             val stored = userPreferencesRepository.ensureFirstUseDate()
             firstUseDate = Instant.ofEpochMilli(stored).atZone(zoneId).toLocalDate()
         }
+        viewModelScope.launch {
+            userPreferencesRepository.developerModeFlow.collect { enabled ->
+                _uiState.value = _uiState.value.copy(isDeveloperMode = enabled)
+            }
+        }
     }
 
-    fun loadWeeklySummary() {
+    fun loadWeeklySummary(force: Boolean = false) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
                 isLoading = true,
@@ -84,23 +91,33 @@ class WeeklySummaryViewModel(
 
             try {
                 val today = LocalDate.now()
+                val developerMode = _uiState.value.isDeveloperMode
+                val latestFirstUse = userPreferencesRepository.firstUseLocalDate(zoneId).first()
+                    ?: firstUseDate
+                val latestWeekStart = userPreferencesRepository.weekStartDayFlow.first()
+                firstUseDate = latestFirstUse
+                weekStartDay = latestWeekStart
+
                 val schedule = calculateWeeklyScheduleUseCase(
-                    firstUseDate = firstUseDate,
-                    weekStartDay = weekStartDay,
+                    firstUseDate = latestFirstUse,
+                    weekStartDay = latestWeekStart,
                     today = today
                 )
 
                 val start = schedule.windowStart.atStartOfDay(zoneId).toInstant().toEpochMilli()
                 val end = schedule.windowEnd.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
 
-                if (!schedule.isSummaryAvailable) {
+                val allowForce = force || developerMode
+
+                if (!schedule.isSummaryAvailable && !allowForce) {
                     _uiState.value = WeeklySummaryUiState(
                         isLoading = false,
                         summary = null,
                         highlight = null,
                         errorMessage = "Tu próximo resumen estará listo el ${schedule.nextSummaryDate}",
                         nextSummaryDate = schedule.nextSummaryDate,
-                        isSummaryAvailable = false
+                        isSummaryAvailable = false,
+                        isDeveloperMode = developerMode
                     )
                     return@launch
                 }
@@ -123,7 +140,8 @@ class WeeklySummaryViewModel(
                     errorMessage = null,
                     insights = insights,
                     nextSummaryDate = schedule.nextSummaryDate,
-                    isSummaryAvailable = schedule.isSummaryAvailable
+                    isSummaryAvailable = schedule.isSummaryAvailable || allowForce,
+                    isDeveloperMode = developerMode
                 )
             } catch (e: Exception) {
                 _uiState.value = WeeklySummaryUiState(
@@ -132,7 +150,8 @@ class WeeklySummaryViewModel(
                     highlight = null,
                     errorMessage = "No se pudo cargar el resumen semanal.",
                     nextSummaryDate = null,
-                    isSummaryAvailable = false
+                    isSummaryAvailable = false,
+                    isDeveloperMode = _uiState.value.isDeveloperMode
                 )
             }
         }

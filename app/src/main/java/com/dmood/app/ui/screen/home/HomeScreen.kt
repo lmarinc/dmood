@@ -210,13 +210,12 @@ fun HomeScreen(
                     } else {
                         val heroPages = remember(filteredDecisions, isToday) {
                             buildList {
-                                add(HomeHeroPage.GREETING)
-                                if (filteredDecisions.isNotEmpty()) {
-                                    add(HomeHeroPage.DECISIONS)
-                                }
-                                add(HomeHeroPage.ADD)
+                                if (isToday) add(HomeHeroPage.GREETING)
+                                add(HomeHeroPage.DECISIONS)
+                                if (isToday) add(HomeHeroPage.ADD)
                             }
                         }
+                        val heroCardHeight = 320.dp
                         val pagerState = rememberPagerState(pageCount = { heroPages.size })
                         val hasFilters = uiState.categoryFilter != null
 
@@ -233,13 +232,15 @@ fun HomeScreen(
                                     pagerState = pagerState,
                                     pages = heroPages,
                                     indicatorColor = MaterialTheme.colorScheme.primary,
+                                    cardHeight = heroCardHeight,
                                     greeting = {
                                         GreetingAndSummaryCard(
                                             userName = uiState.userName,
                                             formattedSummaryDate = formattedSummaryDate,
                                             daysUntilSummary = daysUntilSummary,
                                             onOpenSummaryClick = onOpenSummaryClick,
-                                            isSummaryAvailable = summaryAvailableToday
+                                            isSummaryAvailable = summaryAvailableToday,
+                                            modifier = Modifier.heightIn(min = heroCardHeight)
                                         )
                                     },
                                     decisions = {
@@ -250,7 +251,8 @@ fun HomeScreen(
                                             onAddDecisionClick = onAddDecisionClick,
                                             onDecisionClick = onDecisionClick,
                                             onToggleSelection = viewModel::toggleDecisionSelection,
-                                            onClearFilters = { viewModel.updateCategoryFilter(null) }
+                                            onClearFilters = { viewModel.updateCategoryFilter(null) },
+                                            modifier = Modifier.heightIn(min = heroCardHeight)
                                         )
                                     },
                                     addDecision = {
@@ -259,7 +261,8 @@ fun HomeScreen(
                                             hasDecisions = filteredDecisions.isNotEmpty(),
                                             onAddDecisionClick = onAddDecisionClick,
                                             daysUntilSummary = daysUntilSummary,
-                                            nextSummaryDate = formattedSummaryDate
+                                            nextSummaryDate = formattedSummaryDate,
+                                            modifier = Modifier.heightIn(min = heroCardHeight)
                                         )
                                     }
                                 )
@@ -374,7 +377,8 @@ private fun GreetingAndSummaryCard(
     formattedSummaryDate: String,
     daysUntilSummary: Int,
     onOpenSummaryClick: () -> Unit,
-    isSummaryAvailable: Boolean
+    isSummaryAvailable: Boolean,
+    modifier: Modifier = Modifier
 ) {
     val displayName = userName?.takeIf { it.isNotBlank() } ?: "de nuevo"
 
@@ -385,7 +389,7 @@ private fun GreetingAndSummaryCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface
@@ -459,6 +463,7 @@ private fun HomeHeroPager(
     pagerState: androidx.compose.foundation.pager.PagerState,
     pages: List<HomeHeroPage>,
     indicatorColor: Color,
+    cardHeight: Dp,
     greeting: @Composable () -> Unit,
     decisions: @Composable () -> Unit,
     addDecision: @Composable () -> Unit
@@ -468,7 +473,8 @@ private fun HomeHeroPager(
             state = pagerState,
             pageSpacing = 14.dp,
             contentPadding = PaddingValues(horizontal = 4.dp),
-            flingBehavior = PagerDefaults.flingBehavior(state = pagerState)
+            flingBehavior = PagerDefaults.flingBehavior(state = pagerState),
+            modifier = Modifier.height(cardHeight)
         ) { page ->
             when (pages[page]) {
                 HomeHeroPage.GREETING -> greeting()
@@ -507,14 +513,15 @@ private fun DailyDecisionsCard(
     onAddDecisionClick: () -> Unit,
     onDecisionClick: (Long) -> Unit,
     onToggleSelection: (Long) -> Unit,
-    onClearFilters: () -> Unit
+    onClearFilters: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val accentColors = listOf(
         MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
         MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f)
     )
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
@@ -623,12 +630,13 @@ private fun AddDecisionCard(
     hasDecisions: Boolean,
     onAddDecisionClick: () -> Unit,
     daysUntilSummary: Int,
-    nextSummaryDate: String
+    nextSummaryDate: String,
+    modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Column(

@@ -13,7 +13,8 @@ data class SettingsUiState(
     val isSaving: Boolean = false,
     val feedbackMessage: String? = null,
     val errorMessage: String? = null,
-    val weekStartDay: java.time.DayOfWeek = java.time.DayOfWeek.MONDAY
+    val weekStartDay: java.time.DayOfWeek = java.time.DayOfWeek.MONDAY,
+    val developerModeEnabled: Boolean = false
 )
 
 class SettingsViewModel(
@@ -26,6 +27,7 @@ class SettingsViewModel(
     init {
         loadCurrentName()
         observeWeekStart()
+        observeDeveloperMode()
     }
 
     private fun loadCurrentName() {
@@ -42,6 +44,14 @@ class SettingsViewModel(
         viewModelScope.launch {
             userPreferencesRepository.weekStartDayFlow.collect { stored ->
                 _uiState.value = _uiState.value.copy(weekStartDay = stored)
+            }
+        }
+    }
+
+    private fun observeDeveloperMode() {
+        viewModelScope.launch {
+            userPreferencesRepository.developerModeFlow.collect { enabled ->
+                _uiState.value = _uiState.value.copy(developerModeEnabled = enabled)
             }
         }
     }
@@ -90,6 +100,13 @@ class SettingsViewModel(
         _uiState.value = _uiState.value.copy(weekStartDay = dayOfWeek, feedbackMessage = null)
         viewModelScope.launch {
             userPreferencesRepository.setWeekStartDay(dayOfWeek)
+        }
+    }
+
+    fun toggleDeveloperMode(enabled: Boolean) {
+        _uiState.value = _uiState.value.copy(developerModeEnabled = enabled, feedbackMessage = null)
+        viewModelScope.launch {
+            userPreferencesRepository.setDeveloperMode(enabled)
         }
     }
 }

@@ -28,6 +28,7 @@ class UserPreferencesRepository(private val context: Context) {
         private val CARD_LAYOUT_KEY = stringPreferencesKey("card_layout_mode")
         private val WEEK_START_DAY_KEY = stringPreferencesKey("week_start_day")
         private val FIRST_USE_DATE_KEY = longPreferencesKey("first_use_date")
+        private val DEVELOPER_MODE_KEY = booleanPreferencesKey("developer_mode")
         private const val DEFAULT_WEEK_START = "MONDAY"
         private const val DEFAULT_CARD_LAYOUT = "COZY"
     }
@@ -48,6 +49,10 @@ class UserPreferencesRepository(private val context: Context) {
         val stored = prefs[WEEK_START_DAY_KEY]
         stored?.let { runCatching { DayOfWeek.valueOf(it) }.getOrNull() }
             ?: DayOfWeek.valueOf(DEFAULT_WEEK_START)
+    }
+
+    val developerModeFlow: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[DEVELOPER_MODE_KEY] ?: false
     }
 
     val firstUseDateFlow: Flow<Long?> = dataStore.data.map { prefs ->
@@ -79,6 +84,12 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun setWeekStartDay(dayOfWeek: DayOfWeek) {
         dataStore.edit { prefs ->
             prefs[WEEK_START_DAY_KEY] = dayOfWeek.name
+        }
+    }
+
+    suspend fun setDeveloperMode(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[DEVELOPER_MODE_KEY] = enabled
         }
     }
 

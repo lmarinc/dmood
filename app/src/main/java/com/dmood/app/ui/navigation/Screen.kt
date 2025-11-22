@@ -10,6 +10,7 @@ sealed class Screen(val route: String) {
         }
     }
     object WeeklySummary : Screen("weekly_summary")
+    object WeeklyHistory : Screen("weekly_history")
     object Settings : Screen("settings")
     object Faq : Screen("faq")
 }

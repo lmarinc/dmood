@@ -3,8 +3,8 @@ package com.dmood.app.ui.screen.settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -19,13 +19,11 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -37,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dmood.app.ui.DmoodViewModelFactory
+import com.dmood.app.ui.components.DmoodTopBar
 import java.time.DayOfWeek
 import java.time.format.TextStyle
 import java.util.Locale
@@ -55,12 +54,22 @@ fun SettingsScreen(
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = { Text("Ajustes") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                    }
+            DmoodTopBar(
+                title = "Ajustes",
+                subtitle = "Personaliza tu experiencia",
+                actions = {},
+                modifier = Modifier,
+                content = {
+                    AssistChip(
+                        onClick = onBack,
+                        label = { Text("Volver") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = null
+                            )
+                        }
+                    )
                 }
             )
         }
@@ -174,6 +183,21 @@ fun SettingsScreen(
                         text = "Esto ajusta cuándo se desbloquean los resúmenes semanales.",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            SettingsSection(title = "Modo avanzado") {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ReminderRow(
+                        label = "Modo desarrollador",
+                        checked = uiState.developerModeEnabled,
+                        onCheckedChange = viewModel::toggleDeveloperMode
+                    )
+                    Text(
+                        text = "Actívalo para probar funcionalidades internas como la generación manual de resúmenes.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }

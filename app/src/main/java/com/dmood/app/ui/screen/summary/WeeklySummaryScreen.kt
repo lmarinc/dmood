@@ -20,17 +20,17 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -44,8 +44,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dmood.app.domain.model.CategoryType
-import com.dmood.app.ui.DmoodViewModelFactory
 import com.dmood.app.domain.usecase.InsightRuleResult
+import com.dmood.app.ui.DmoodViewModelFactory
+import com.dmood.app.ui.components.DmoodTopBar
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -55,6 +56,7 @@ import java.util.Locale
 @Composable
 fun WeeklySummaryScreen(
     onBack: () -> Unit,
+    onOpenHistory: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: WeeklySummaryViewModel = viewModel(factory = DmoodViewModelFactory)
 ) {
@@ -78,11 +80,36 @@ fun WeeklySummaryScreen(
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = { Text("Resumen semanal") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+            DmoodTopBar(
+                title = "Resumen semanal",
+                subtitle = "Visión general de tu semana",
+                content = {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        AssistChip(
+                            onClick = onBack,
+                            label = { Text("Volver") },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = null
+                                )
+                            },
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = MaterialTheme.colorScheme.surface,
+                                labelColor = MaterialTheme.colorScheme.onSurface
+                            )
+                        )
+                        AssistChip(
+                            onClick = onOpenHistory,
+                            label = { Text("Histórico semanal") },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Filled.Info,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        )
                     }
                 }
             )
@@ -95,18 +122,15 @@ fun WeeklySummaryScreen(
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = uiState.userName?.let { "Tu semana, $it" } ?: "Tu semana",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.SemiBold
+            WeeklySummaryHeaderCard(
+                userName = uiState.userName,
+                weekRange = weekRange,
+                nextSummaryFriendly = nextSummaryFriendly,
+                isSummaryAvailable = uiState.isSummaryAvailable,
+                isDeveloperMode = uiState.isDeveloperMode,
+                onForceGenerate = { viewModel.loadWeeklySummary(force = true) },
+                onOpenHistory = onOpenHistory
             )
-            if (weekRange != null) {
-                Text(
-                    text = weekRange,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
 
             when {
                 uiState.isLoading -> {
@@ -116,41 +140,11 @@ fun WeeklySummaryScreen(
                 }
 
                 !uiState.isSummaryAvailable -> {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.extraLarge,
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(20.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Text(
-                                text = "Aún no hay resumen disponible",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Text(
-                                text = uiState.errorMessage ?: "Prepárate para tu próximo corte el ${nextSummaryFriendly ?: "-"}.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            if (nextSummaryFriendly != null) {
-                                AssistChip(
-                                    onClick = {},
-                                    enabled = false,
-                                    label = { Text("Próximo resumen: $nextSummaryFriendly") }
-                                )
-                            }
-                        }
-                    }
+                    SummaryUnavailableCard(nextSummaryFriendly = nextSummaryFriendly)
                 }
 
                 uiState.errorMessage != null -> {
-                    Text(
-                        text = uiState.errorMessage ?: "",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
+                    SummaryUnavailableCard(nextSummaryFriendly = nextSummaryFriendly, message = uiState.errorMessage)
                 }
 
                 else -> {
@@ -208,6 +202,115 @@ fun WeeklySummaryScreen(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WeeklySummaryHeaderCard(
+    userName: String?,
+    weekRange: String?,
+    nextSummaryFriendly: String?,
+    isSummaryAvailable: Boolean,
+    isDeveloperMode: Boolean,
+    onForceGenerate: () -> Unit,
+    onOpenHistory: () -> Unit
+) {
+    val displayName = userName?.takeIf { it.isNotBlank() } ?: "aquí"
+    val statusText = when {
+        isSummaryAvailable -> "Tu resumen está listo para revisar."
+        nextSummaryFriendly != null -> "Prepararemos tu resumen el $nextSummaryFriendly."
+        else -> "Registra algunas decisiones para activar el corte semanal."
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "Hola, $displayName",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium)
+            )
+            weekRange?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (nextSummaryFriendly != null) {
+                Text(
+                    text = "Próximo corte: $nextSummaryFriendly",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Text(
+                text = statusText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AssistChip(
+                    onClick = onOpenHistory,
+                    label = { Text("Ver histórico") }
+                )
+                if (isDeveloperMode && !isSummaryAvailable) {
+                    AssistChip(
+                        onClick = onForceGenerate,
+                        label = { Text("Generar ahora") },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            labelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryUnavailableCard(
+    nextSummaryFriendly: String?,
+    message: String? = null
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "Aún no hay resumen disponible",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = message
+                    ?: "Sigue registrando decisiones. Próximo corte: ${nextSummaryFriendly ?: "pronto"}.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (nextSummaryFriendly != null) {
+                AssistChip(
+                    onClick = {},
+                    enabled = false,
+                    label = { Text("Próximo resumen: $nextSummaryFriendly") }
+                )
             }
         }
     }
