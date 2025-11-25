@@ -132,7 +132,7 @@ fun WeeklySummaryScreen(
                 }
 
                 uiState.summary != null -> {
-                    val summary = uiState.summary
+                    val summary = uiState.summary!! // forzar no-nulo dentro de la rama comprobada
                     uiState.highlight?.let { highlight ->
                         LazyRow(
                             contentPadding = PaddingValues(vertical = 8.dp),
@@ -150,21 +150,21 @@ fun WeeklySummaryScreen(
                             }
                             item {
                                 ToneDistributionCard(
-                                    calm = summary.calmPercentage,
-                                    impulsive = summary.impulsivePercentage
+                                    calm = summary.calmPercentage ?: 0f,
+                                    impulsive = summary.impulsivePercentage ?: 0f
                                 )
                             }
                             item {
                                 HighlightDaysCard(highlight = highlight)
                             }
                             items(
-                                summary.categoryDistribution.entries
+                                (summary.categoryDistribution ?: emptyMap()).entries
                                     .sortedByDescending { it.value }
                                     .take(3)
                             ) { entry ->
                                 CategoryDistributionCard(
                                     entry = entry,
-                                    total = summary.totalDecisions
+                                    total = summary.totalDecisions ?: 0
                                 )
                             }
                         }
@@ -313,8 +313,9 @@ private fun ToneDistributionCard(
                     .clip(MaterialTheme.shapes.small)
                     .padding(vertical = 2.dp)
             ) {
+                val denom = (calm + impulsive).coerceAtLeast(1f)
                 RowBarSegment(
-                    calmFraction = calm / (calm + impulsive).coerceAtLeast(1f),
+                    calmFraction = calm / denom,
                     calmColor = Color(0xFF69C7A1),
                     impulsiveColor = Color(0xFFFF9D6C)
                 )

@@ -158,12 +158,12 @@ class WeeklySummaryViewModel(
 
     fun loadDemoSummary() {
         val now = LocalDate.now()
-        val startDate = now.minusDays(7).atStartOfDay(zoneId).toInstant().toEpochMilli()
-        val endDate = now.atStartOfDay(zoneId).toInstant().toEpochMilli()
+        val startDateMillis = now.minusDays(7).atStartOfDay(zoneId).toInstant().toEpochMilli()
+        val endDateMillis = now.atStartOfDay(zoneId).toInstant().toEpochMilli()
 
         val demoSummary = WeeklySummary(
-            startDate = startDate,
-            endDate = endDate,
+            startDate = startDateMillis,
+            endDate = endDateMillis,
             totalDecisions = 8,
             calmPercentage = 62f,
             impulsivePercentage = 25f,
@@ -174,16 +174,16 @@ class WeeklySummaryViewModel(
                 "Viernes" to com.dmood.app.domain.usecase.DailyMood.NEGATIVO
             ),
             categoryDistribution = mapOf(
-                com.dmood.app.domain.model.CategoryType.PERSONAL to 4,
-                com.dmood.app.domain.model.CategoryType.TRABAJO to 3,
-                com.dmood.app.domain.model.CategoryType.RELACIONES to 1
+                com.dmood.app.domain.model.CategoryType.RELACIONES_SOCIAL to 4,
+                com.dmood.app.domain.model.CategoryType.TRABAJO_ESTUDIOS to 3,
+                com.dmood.app.domain.model.CategoryType.RELACIONES_SOCIAL to 1
             )
         )
 
         val demoHighlight = WeeklyHighlight(
             strongestPositiveDay = "Lunes",
             strongestNegativeDay = "Viernes",
-            mostFrequentCategory = com.dmood.app.domain.model.CategoryType.PERSONAL,
+            mostFrequentCategory = com.dmood.app.domain.model.CategoryType.OCIO_TIEMPO_LIBRE,
             emotionalTrend = "Ejemplo de semana equilibrada"
         )
 
