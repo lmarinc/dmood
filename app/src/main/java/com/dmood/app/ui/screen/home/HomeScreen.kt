@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -231,41 +232,44 @@ fun HomeScreen(
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             item {
-                                HomeHeroPager(
-                                    pagerState = pagerState,
-                                    pages = heroPages,
-                                    indicatorColor = MaterialTheme.colorScheme.primary,
-                                    greeting = {
-                                        GreetingAndSummaryCard(
-                                            userName = uiState.userName,
-                                            formattedSummaryDate = formattedSummaryDate,
-                                            daysUntilSummary = daysUntilSummary,
-                                            onOpenSummaryClick = onOpenSummaryClick,
-                                            isSummaryAvailable = summaryAvailableToday
-                                        )
-                                    },
-                                    decisions = {
-                                        DailyDecisionsCard(
-                                            filteredDecisions = filteredDecisions,
-                                            uiState = uiState,
-                                            isToday = isToday,
-                                            onAddDecisionClick = onAddDecisionClick,
-                                            onDecisionClick = onDecisionClick,
-                                            onToggleSelection = viewModel::toggleDecisionSelection,
-                                            onClearFilters = { viewModel.updateCategoryFilter(null) }
-                                        )
-                                    },
-                                    addDecision = {
-                                        AddDecisionCard(
-                                            isToday = isToday,
-                                            hasDecisions = filteredDecisions.isNotEmpty(),
-                                            onAddDecisionClick = onAddDecisionClick,
-                                            daysUntilSummary = daysUntilSummary,
-                                            nextSummaryDate = formattedSummaryDate
-                                        )
-                                    }
-                                )
-                            }
+                HomeHeroPager(
+                    pagerState = pagerState,
+                    pages = heroPages,
+                    indicatorColor = MaterialTheme.colorScheme.primary,
+                    greeting = {
+                        GreetingAndSummaryCard(
+                            userName = uiState.userName,
+                            formattedSummaryDate = formattedSummaryDate,
+                            daysUntilSummary = daysUntilSummary,
+                            onOpenSummaryClick = onOpenSummaryClick,
+                            isSummaryAvailable = summaryAvailableToday,
+                            modifier = Modifier.heightIn(min = 260.dp)
+                        )
+                    },
+                    decisions = {
+                        DailyDecisionsCard(
+                            filteredDecisions = filteredDecisions,
+                            uiState = uiState,
+                            isToday = isToday,
+                            onAddDecisionClick = onAddDecisionClick,
+                            onDecisionClick = onDecisionClick,
+                            onToggleSelection = viewModel::toggleDecisionSelection,
+                            onClearFilters = { viewModel.updateCategoryFilter(null) },
+                            modifier = Modifier.heightIn(min = 260.dp)
+                        )
+                    },
+                    addDecision = {
+                        AddDecisionCard(
+                            isToday = isToday,
+                            hasDecisions = filteredDecisions.isNotEmpty(),
+                            onAddDecisionClick = onAddDecisionClick,
+                            daysUntilSummary = daysUntilSummary,
+                            nextSummaryDate = formattedSummaryDate,
+                            modifier = Modifier.heightIn(min = 260.dp)
+                        )
+                    }
+                )
+            }
 
                             if (hasFilters) {
                                 item {
@@ -376,7 +380,8 @@ private fun GreetingAndSummaryCard(
     formattedSummaryDate: String,
     daysUntilSummary: Int,
     onOpenSummaryClick: () -> Unit,
-    isSummaryAvailable: Boolean
+    isSummaryAvailable: Boolean,
+    modifier: Modifier = Modifier
 ) {
     val displayName = userName?.takeIf { it.isNotBlank() } ?: "de nuevo"
 
@@ -387,7 +392,7 @@ private fun GreetingAndSummaryCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface
@@ -472,10 +477,17 @@ private fun HomeHeroPager(
             contentPadding = PaddingValues(horizontal = 4.dp),
             flingBehavior = PagerDefaults.flingBehavior(state = pagerState)
         ) { page ->
-            when (pages[page]) {
-                HomeHeroPage.GREETING -> greeting()
-                HomeHeroPage.DECISIONS -> decisions()
-                HomeHeroPage.ADD -> addDecision()
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 260.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                when (pages[page]) {
+                    HomeHeroPage.GREETING -> greeting()
+                    HomeHeroPage.DECISIONS -> decisions()
+                    HomeHeroPage.ADD -> addDecision()
+                }
             }
         }
 
@@ -509,14 +521,11 @@ private fun DailyDecisionsCard(
     onAddDecisionClick: () -> Unit,
     onDecisionClick: (Long) -> Unit,
     onToggleSelection: (Long) -> Unit,
-    onClearFilters: () -> Unit
+    onClearFilters: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val accentColors = listOf(
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-        MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f)
-    )
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
@@ -524,7 +533,6 @@ private fun DailyDecisionsCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Brush.verticalGradient(accentColors))
                 .padding(horizontal = 20.dp, vertical = 18.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -554,23 +562,6 @@ private fun DailyDecisionsCard(
                     )
                 }
 
-                if (isToday && !uiState.isDeleteMode) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary)
-                            .clickable { onAddDecisionClick() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "+",
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
             }
 
             if (filteredDecisions.isEmpty()) {
@@ -625,10 +616,11 @@ private fun AddDecisionCard(
     hasDecisions: Boolean,
     onAddDecisionClick: () -> Unit,
     daysUntilSummary: Int,
-    nextSummaryDate: String
+    nextSummaryDate: String,
+    modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
