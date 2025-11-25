@@ -3,6 +3,7 @@ package com.dmood.app.domain.usecase
 import com.dmood.app.domain.model.CategoryType
 import com.dmood.app.domain.model.Decision
 import com.dmood.app.domain.model.DecisionTone
+import com.dmood.app.domain.model.EmotionType
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.TextStyle
@@ -19,7 +20,10 @@ data class WeeklySummary(
     val impulsivePercentage: Float,
     val neutralPercentage: Float,
     val dailyMoods: Map<String, DailyMood>,
-    val categoryDistribution: Map<CategoryType, Int>
+    val categoryDistribution: Map<CategoryType, Int>,
+    val emotionDistribution: Map<EmotionType, Int>,
+    val categoryEmotionMatrix: Map<CategoryType, Map<EmotionType, Int>>,
+    val toneEmotionDistribution: Map<DecisionTone, Map<EmotionType, Int>>
 )
 
 /**
@@ -47,6 +51,9 @@ class BuildWeeklySummaryUseCase(
 
         val dailyMoods = buildDailyMoods(decisions)
         val categoryDistribution = decisions.groupingBy { it.category }.eachCount()
+        val emotionDistribution = buildEmotionDistribution(decisions)
+        val categoryEmotionMatrix = buildCategoryEmotionMatrix(decisions)
+        val toneEmotionDistribution = buildToneEmotionDistribution(decisions)
 
         return WeeklySummary(
             startDate = startDate,
@@ -56,7 +63,10 @@ class BuildWeeklySummaryUseCase(
             impulsivePercentage = impulsivePercentage,
             neutralPercentage = neutralPercentage,
             dailyMoods = dailyMoods,
-            categoryDistribution = categoryDistribution
+            categoryDistribution = categoryDistribution,
+            emotionDistribution = emotionDistribution,
+            categoryEmotionMatrix = categoryEmotionMatrix,
+            toneEmotionDistribution = toneEmotionDistribution
         )
     }
 
@@ -85,5 +95,41 @@ class BuildWeeklySummaryUseCase(
             }
 
         return result
+    }
+
+    // Conteo total de emociones en la semana.
+    private fun buildEmotionDistribution(decisions: List<Decision>): Map<EmotionType, Int> {
+        if (decisions.isEmpty()) return emptyMap()
+
+        return EmotionType.values().associateWith { emotion ->
+            decisions.count { decision -> decision.emotions.contains(emotion) }
+        }
+    }
+
+    // Matriz categoría-emoción: cuántas veces aparece cada emoción en cada categoría.
+    private fun buildCategoryEmotionMatrix(
+        decisions: List<Decision>
+    ): Map<CategoryType, Map<EmotionType, Int>> {
+        if (decisions.isEmpty()) return emptyMap()
+
+        return decisions.groupBy { it.category }.mapValues { (_, categoryDecisions) ->
+            EmotionType.values().associateWith { emotion ->
+                categoryDecisions.count { decision -> decision.emotions.contains(emotion) }
+            }
+        }
+    }
+
+    // Distribución de emociones según el tono de la decisión (calma vs impulsiva vs neutra).
+    private fun buildToneEmotionDistribution(
+        decisions: List<Decision>
+    ): Map<DecisionTone, Map<EmotionType, Int>> {
+        if (decisions.isEmpty()) return emptyMap()
+
+        return DecisionTone.values().associateWith { tone ->
+            val toneDecisions = decisions.filter { it.tone == tone }
+            EmotionType.values().associateWith { emotion ->
+                toneDecisions.count { decision -> decision.emotions.contains(emotion) }
+            }
+        }
     }
 }

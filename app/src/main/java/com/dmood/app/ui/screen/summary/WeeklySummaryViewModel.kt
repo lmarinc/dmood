@@ -25,6 +25,7 @@ data class WeeklySummaryUiState(
     val errorMessage: String? = null,
     val userName: String? = null,
     val insights: List<com.dmood.app.domain.usecase.InsightRuleResult> = emptyList(),
+    val heroInsight: com.dmood.app.domain.usecase.InsightRuleResult? = null,
     val nextSummaryDate: LocalDate? = null,
     val isSummaryAvailable: Boolean = false,
     val isDemo: Boolean = false
@@ -129,8 +130,9 @@ class WeeklySummaryViewModel(
                     endDate = end
                 )
 
-                val highlight = extractWeeklyHighlightsUseCase(summary)
-                val insights = generateInsightRulesUseCase(decisions)
+                val highlight = extractWeeklyHighlightsUseCase(summary, decisions)
+                val insights = generateInsightRulesUseCase(decisions, summary)
+                val heroInsight = insights.firstOrNull()
 
                 _uiState.value = WeeklySummaryUiState(
                     isLoading = false,
@@ -138,6 +140,7 @@ class WeeklySummaryViewModel(
                     highlight = highlight,
                     errorMessage = null,
                     insights = insights,
+                    heroInsight = heroInsight,
                     nextSummaryDate = schedule.nextSummaryDate,
                     isSummaryAvailable = schedule.isSummaryAvailable,
                     isDemo = false
@@ -176,15 +179,32 @@ class WeeklySummaryViewModel(
             categoryDistribution = mapOf(
                 com.dmood.app.domain.model.CategoryType.RELACIONES_SOCIAL to 4,
                 com.dmood.app.domain.model.CategoryType.TRABAJO_ESTUDIOS to 3,
-                com.dmood.app.domain.model.CategoryType.RELACIONES_SOCIAL to 1
-            )
+                com.dmood.app.domain.model.CategoryType.OCIO_TIEMPO_LIBRE to 1
+            ),
+            emotionDistribution = mapOf(
+                com.dmood.app.domain.model.EmotionType.MIEDO to 5,
+                com.dmood.app.domain.model.EmotionType.ENFADADO to 2,
+                com.dmood.app.domain.model.EmotionType.MOTIVADO to 1
+            ),
+            categoryEmotionMatrix = mapOf(
+                com.dmood.app.domain.model.CategoryType.TRABAJO_ESTUDIOS to mapOf(
+                    com.dmood.app.domain.model.EmotionType.MIEDO to 3,
+                    com.dmood.app.domain.model.EmotionType.ENFADADO to 1
+                ),
+                com.dmood.app.domain.model.CategoryType.RELACIONES_SOCIAL to mapOf(
+                    com.dmood.app.domain.model.EmotionType.MIEDO to 2,
+                    com.dmood.app.domain.model.EmotionType.MOTIVADO to 1
+                )
+            ),
+            toneEmotionDistribution = emptyMap()
         )
 
         val demoHighlight = WeeklyHighlight(
             strongestPositiveDay = "Lunes",
             strongestNegativeDay = "Viernes",
             mostFrequentCategory = com.dmood.app.domain.model.CategoryType.OCIO_TIEMPO_LIBRE,
-            emotionalTrend = "Ejemplo de semana equilibrada"
+            emotionalTrend = "Ejemplo de semana equilibrada",
+            mostChallengingDayEmotion = com.dmood.app.domain.model.EmotionType.MIEDO
         )
 
         _uiState.value = WeeklySummaryUiState(
@@ -194,6 +214,7 @@ class WeeklySummaryViewModel(
             errorMessage = null,
             userName = _uiState.value.userName,
             insights = emptyList(),
+            heroInsight = null,
             nextSummaryDate = _uiState.value.nextSummaryDate,
             isSummaryAvailable = true,
             isDemo = true

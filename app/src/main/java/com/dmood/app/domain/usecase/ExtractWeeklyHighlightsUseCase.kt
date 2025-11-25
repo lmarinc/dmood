@@ -1,6 +1,11 @@
 package com.dmood.app.domain.usecase
 
 import com.dmood.app.domain.model.CategoryType
+import com.dmood.app.domain.model.Decision
+import com.dmood.app.domain.model.EmotionType
+import java.time.ZoneId
+import java.time.format.TextStyle
+import java.util.Locale
 
 /**
  * Hallazgos cualitativos destacados sobre una semana.
@@ -9,7 +14,8 @@ data class WeeklyHighlight(
     val strongestPositiveDay: String?,
     val strongestNegativeDay: String?,
     val mostFrequentCategory: CategoryType?,
-    val emotionalTrend: String
+    val emotionalTrend: String,
+    val mostChallengingDayEmotion: EmotionType?
 )
 
 /**
@@ -17,9 +23,15 @@ data class WeeklyHighlight(
  */
 class ExtractWeeklyHighlightsUseCase {
 
-    operator fun invoke(summary: WeeklySummary): WeeklyHighlight {
+    operator fun invoke(
+        summary: WeeklySummary,
+        decisions: List<Decision>,
+        zoneId: ZoneId = ZoneId.systemDefault()
+    ): WeeklyHighlight {
         val strongestPositiveDay = findDayWithMood(summary, DailyMood.POSITIVO)
-        val strongestNegativeDay = findDayWithMood(summary, DailyMood.NEGATIVO)
+        val challengingDayInfo = findMostChallengingDay(decisions, zoneId)
+        val strongestNegativeDay = challengingDayInfo?.first ?: findDayWithMood(summary, DailyMood.NEGATIVO)
+        val challengingDayEmotion = challengingDayInfo?.second
 
         val mostFrequentCategory = summary.categoryDistribution
             .maxByOrNull { it.value }
@@ -31,7 +43,8 @@ class ExtractWeeklyHighlightsUseCase {
             strongestPositiveDay = strongestPositiveDay,
             strongestNegativeDay = strongestNegativeDay,
             mostFrequentCategory = mostFrequentCategory,
-            emotionalTrend = emotionalTrend
+            emotionalTrend = emotionalTrend,
+            mostChallengingDayEmotion = challengingDayEmotion
         )
     }
 
@@ -52,5 +65,31 @@ class ExtractWeeklyHighlightsUseCase {
             negativeDays > positiveDays -> "Semana predominantemente negativa"
             else -> "Semana equilibrada"
         }
+    }
+
+    private fun findMostChallengingDay(
+        decisions: List<Decision>,
+        zoneId: ZoneId
+    ): Pair<String, EmotionType?>? {
+        if (decisions.isEmpty()) return null
+
+        val grouped = decisions.groupBy { decision ->
+            java.time.Instant.ofEpochMilli(decision.timestamp).atZone(zoneId).toLocalDate()
+        }
+
+        val mostChallenging = grouped.maxByOrNull { (_, dayDecisions) ->
+            // Peso por decisiones con emociones negativas o intensidades altas.
+            dayDecisions.count { it.emotions.any(EmotionType::isNegative) || it.intensity >= 4 }
+        } ?: return null
+
+        val dayName = mostChallenging.key.dayOfWeek.getDisplayName(TextStyle.FULL, Locale("es", "ES"))
+        val dominantEmotion = mostChallenging.value
+            .flatMap { it.emotions }
+            .groupingBy { it }
+            .eachCount()
+            .maxByOrNull { it.value }
+            ?.key
+
+        return dayName to dominantEmotion
     }
 }
