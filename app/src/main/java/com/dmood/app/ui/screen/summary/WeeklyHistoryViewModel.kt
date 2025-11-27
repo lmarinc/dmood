@@ -115,8 +115,8 @@ class WeeklyHistoryViewModel(
                             startDate = startMillis,
                             endDate = endMillis
                         )
-                        val highlight = extractWeeklyHighlightsUseCase(summary)
-                        val insights = generateInsightRulesUseCase(decisions)
+                        val highlight = extractWeeklyHighlightsUseCase(summary, decisions)
+                        val insights = generateInsightRulesUseCase(decisions, summary)
                         items += WeeklyHistoryItem(
                             startDate = startDate,
                             endDate = endDate,
