@@ -87,7 +87,7 @@ fun AppNavHost(
             )
         }
         composable(Screen.Faq.route) {
-            FaqScreen()
+            FaqScreen(onBack = { navController.popBackStack() })
         }
     }
 }

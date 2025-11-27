@@ -51,14 +51,15 @@ private val faqEntries = listOf(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FaqScreen(modifier: Modifier = Modifier) {
+fun FaqScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     Scaffold(
         modifier = modifier,
         topBar = {
             DmoodTopBar(
                 title = "Guía D-Mood",
                 subtitle = "Consejos rápidos",
-                showLogo = true
+                showLogo = true,
+                onBack = onBack
             )
         }
     ) { innerPadding ->
