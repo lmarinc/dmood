@@ -106,7 +106,8 @@ class WeeklySummaryViewModel(
                 )
 
                 val start = schedule.windowStart.atStartOfDay(zoneId).toInstant().toEpochMilli()
-                val end = schedule.windowEnd.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
+                val endExclusive = schedule.windowEnd.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
+                val endInclusive = schedule.windowEnd.atStartOfDay(zoneId).toInstant().toEpochMilli()
 
                 if (!schedule.isSummaryAvailable) {
                     _uiState.value = WeeklySummaryUiState(
@@ -121,12 +122,12 @@ class WeeklySummaryViewModel(
                     return@launch
                 }
 
-                val decisions = decisionRepository.getByRange(start, end)
+                val decisions = decisionRepository.getByRange(start, endExclusive)
 
                 val summary = buildWeeklySummaryUseCase(
                     decisions = decisions,
                     startDate = start,
-                    endDate = end
+                    endDate = endInclusive
                 )
 
                 val highlight = extractWeeklyHighlightsUseCase(summary)
@@ -177,7 +178,9 @@ class WeeklySummaryViewModel(
                 com.dmood.app.domain.model.CategoryType.RELACIONES_SOCIAL to 4,
                 com.dmood.app.domain.model.CategoryType.TRABAJO_ESTUDIOS to 3,
                 com.dmood.app.domain.model.CategoryType.RELACIONES_SOCIAL to 1
-            )
+            ),
+            emotionDistribution = emptyMap(),
+            categoryEmotionMatrix = emptyMap()
         )
 
         val demoHighlight = WeeklyHighlight(

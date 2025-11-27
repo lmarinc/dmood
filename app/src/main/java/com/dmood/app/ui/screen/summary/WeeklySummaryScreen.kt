@@ -1,23 +1,24 @@
 package com.dmood.app.ui.screen.summary
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.PagerDefaults
-import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -80,36 +81,44 @@ fun WeeklySummaryScreen(
         DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", Locale("es", "ES"))
     )?.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale("es", "ES")) else it.toString() }
 
-    val summarySteps = remember(uiState.summary, uiState.highlight, uiState.insights) {
+    val heroInsight = uiState.insights.firstOrNull()
+    val summarySteps = remember(uiState.summary, uiState.highlight, uiState.insights, heroInsight) {
         buildList<SummaryStep> {
-            uiState.highlight?.let { highlight ->
-                add(SummaryStep.Overview(trend = highlight.emotionalTrend))
-                add(SummaryStep.Highlight(highlight = highlight))
-            }
-
             uiState.summary?.let { summary ->
+                val heroTitle = heroInsight?.title ?: "Tu semana en foco"
+                val heroDescription = heroInsight?.description
+                    ?: uiState.highlight?.emotionalTrend
+                    ?: "Así se sintió tu semana."
                 add(
-                    SummaryStep.Tone(
-                        calm = summary.calmPercentage ?: 0f,
-                        impulsive = summary.impulsivePercentage ?: 0f
+                    SummaryStep.Hero(
+                        title = heroTitle,
+                        description = heroDescription,
+                        tag = heroInsight?.tag
                     )
                 )
 
-                (summary.categoryDistribution ?: emptyMap()).entries
+                add(
+                    SummaryStep.Tone(
+                        calm = summary.calmPercentage,
+                        impulsive = summary.impulsivePercentage
+                    )
+                )
+
+                uiState.highlight?.let { highlight ->
+                    add(SummaryStep.Highlight(highlight = highlight))
+                }
+
+                summary.categoryDistribution.entries
                     .sortedByDescending { it.value }
                     .take(3)
                     .forEach { entry ->
                         add(
                             SummaryStep.Category(
                                 entry = entry,
-                                total = summary.totalDecisions ?: 0
+                                total = summary.totalDecisions
                             )
                         )
                     }
-            }
-
-            if (uiState.insights.isNotEmpty()) {
-                add(SummaryStep.Insights(uiState.insights))
             }
         }
     }
@@ -174,10 +183,35 @@ fun WeeklySummaryScreen(
             }
 
             summarySteps.isNotEmpty() -> {
-                SummaryStepsPager(
-                    steps = summarySteps,
-                    modifier = baseModifier
-                )
+                Column(
+                    modifier = baseModifier,
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                ) {
+                    SummaryStatusCard(
+                        userName = uiState.userName,
+                        weekRange = weekRange,
+                        nextSummaryFriendly = nextSummaryFriendly,
+                        isSummaryAvailable = uiState.isSummaryAvailable || uiState.isDemo,
+                        isLoading = uiState.isLoading,
+                        isDemo = uiState.isDemo,
+                        onActionClick = {
+                            viewModel.loadWeeklySummary()
+                            hasStarted = true
+                        }
+                    )
+
+                    SummaryCarousel(
+                        steps = summarySteps,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    if (uiState.insights.isNotEmpty()) {
+                        InsightsWrap(
+                            title = "Lo que esta semana dice de ti",
+                            insights = uiState.insights
+                        )
+                    }
+                }
             }
 
             else -> {
@@ -193,133 +227,51 @@ fun WeeklySummaryScreen(
 }
 
 private sealed class SummaryStep {
-    data class Overview(val trend: String) : SummaryStep()
+    data class Hero(val title: String, val description: String, val tag: String?) : SummaryStep()
     data class Tone(val calm: Float, val impulsive: Float) : SummaryStep()
     data class Highlight(val highlight: com.dmood.app.domain.usecase.WeeklyHighlight) : SummaryStep()
     data class Category(val entry: Map.Entry<CategoryType, Int>, val total: Int) : SummaryStep()
-    data class Insights(val insights: List<InsightRuleResult>) : SummaryStep()
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun SummaryStepsPager(
+private fun SummaryCarousel(
     steps: List<SummaryStep>,
     modifier: Modifier = Modifier
 ) {
-    val pagerState = rememberPagerState(pageCount = { steps.size })
     val stepCardModifier = Modifier
-        .fillMaxWidth()
-        .heightIn(min = 260.dp)
+        .width(280.dp)
+        .heightIn(min = 240.dp)
 
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        HorizontalPager(
-            state = pagerState,
-            pageSpacing = 16.dp,
-            contentPadding = PaddingValues(horizontal = 8.dp),
-            flingBehavior = PagerDefaults.flingBehavior(state = pagerState)
-        ) { page ->
-            when (val step = steps[page]) {
-                is SummaryStep.Overview -> SummaryCard(
-                    title = "Tono de la semana",
-                    description = step.trend,
-                    modifier = stepCardModifier
-                )
-
-                is SummaryStep.Tone -> ToneDistributionCard(
-                    calm = step.calm,
-                    impulsive = step.impulsive,
-                    modifier = stepCardModifier
-                )
-
-                is SummaryStep.Highlight -> HighlightDaysCard(
-                    highlight = step.highlight,
-                    modifier = stepCardModifier
-                )
-
-                is SummaryStep.Category -> CategoryDistributionCard(
-                    entry = step.entry,
-                    total = step.total,
-                    modifier = stepCardModifier
-                )
-
-                is SummaryStep.Insights -> InsightsStepCard(
-                    insights = step.insights,
-                    modifier = stepCardModifier
-                )
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
+    Column(modifier = modifier) {
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(horizontal = 4.dp)
         ) {
-            steps.forEachIndexed { index, _ ->
-                val isSelected = pagerState.currentPage == index
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = 4.dp)
-                        .size(if (isSelected) 12.dp else 8.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (isSelected) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
-                        )
-                )
-            }
-        }
-    }
-}
+            items(steps) { step ->
+                when (step) {
+                    is SummaryStep.Hero -> SummaryCard(
+                        title = step.title,
+                        description = step.description,
+                        tag = step.tag,
+                        modifier = stepCardModifier
+                    )
 
-@Composable
-private fun InsightsStepCard(
-    insights: List<InsightRuleResult>,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text(
-                text = "Reglas que detectamos",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
+                    is SummaryStep.Tone -> ToneDistributionCard(
+                        calm = step.calm,
+                        impulsive = step.impulsive,
+                        modifier = stepCardModifier
+                    )
 
-            if (insights.isEmpty()) {
-                Text(
-                    text = "Aún no hemos detectado patrones.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                insights.take(3).forEach { insight ->
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            text = insight.tag,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = insight.title,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = insight.description,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    is SummaryStep.Highlight -> HighlightDaysCard(
+                        highlight = step.highlight,
+                        modifier = stepCardModifier
+                    )
+
+                    is SummaryStep.Category -> CategoryDistributionCard(
+                        entry = step.entry,
+                        total = step.total,
+                        modifier = stepCardModifier
+                    )
                 }
             }
         }
@@ -399,6 +351,7 @@ private fun SummaryStatusCard(
 private fun SummaryCard(
     title: String,
     description: String,
+    tag: String? = null,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -414,9 +367,73 @@ private fun SummaryCard(
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                tag?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
                 Text(text = title, style = MaterialTheme.typography.titleMedium)
                 Text(text = description, style = MaterialTheme.typography.bodyLarge)
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun InsightsWrap(
+    title: String,
+    insights: List<InsightRuleResult>,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(text = title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            insights.forEach { insight ->
+                InsightChipCard(insight = insight)
+            }
+        }
+    }
+}
+
+@Composable
+private fun InsightChipCard(insight: InsightRuleResult) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .width(200.dp)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = insight.tag,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = insight.title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = insight.description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 3
+            )
         }
     }
 }

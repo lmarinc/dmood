@@ -3,6 +3,7 @@ package com.dmood.app.domain.usecase
 import com.dmood.app.domain.model.CategoryType
 import com.dmood.app.domain.model.Decision
 import com.dmood.app.domain.model.DecisionTone
+import com.dmood.app.domain.model.EmotionType
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.TextStyle
@@ -19,7 +20,9 @@ data class WeeklySummary(
     val impulsivePercentage: Float,
     val neutralPercentage: Float,
     val dailyMoods: Map<String, DailyMood>,
-    val categoryDistribution: Map<CategoryType, Int>
+    val categoryDistribution: Map<CategoryType, Int>,
+    val emotionDistribution: Map<EmotionType, Int>,
+    val categoryEmotionMatrix: Map<CategoryType, Map<EmotionType, Int>>
 )
 
 /**
@@ -47,6 +50,8 @@ class BuildWeeklySummaryUseCase(
 
         val dailyMoods = buildDailyMoods(decisions)
         val categoryDistribution = decisions.groupingBy { it.category }.eachCount()
+        val emotionDistribution = buildEmotionDistribution(decisions)
+        val categoryEmotionMatrix = buildCategoryEmotionMatrix(decisions)
 
         return WeeklySummary(
             startDate = startDate,
@@ -56,7 +61,9 @@ class BuildWeeklySummaryUseCase(
             impulsivePercentage = impulsivePercentage,
             neutralPercentage = neutralPercentage,
             dailyMoods = dailyMoods,
-            categoryDistribution = categoryDistribution
+            categoryDistribution = categoryDistribution,
+            emotionDistribution = emotionDistribution,
+            categoryEmotionMatrix = categoryEmotionMatrix
         )
     }
 
@@ -85,5 +92,27 @@ class BuildWeeklySummaryUseCase(
             }
 
         return result
+    }
+
+    private fun buildEmotionDistribution(decisions: List<Decision>): Map<EmotionType, Int> {
+        if (decisions.isEmpty()) return emptyMap()
+
+        return decisions
+            .flatMap { decision -> decision.emotions }
+            .groupingBy { it }
+            .eachCount()
+    }
+
+    private fun buildCategoryEmotionMatrix(decisions: List<Decision>): Map<CategoryType, Map<EmotionType, Int>> {
+        if (decisions.isEmpty()) return emptyMap()
+
+        return decisions
+            .groupBy { it.category }
+            .mapValues { (_, categoryDecisions) ->
+                categoryDecisions
+                    .flatMap { it.emotions }
+                    .groupingBy { it }
+                    .eachCount()
+            }
     }
 }
