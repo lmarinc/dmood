@@ -1,10 +1,13 @@
 package com.dmood.app.domain.usecase
 
+import com.dmood.app.domain.model.CategoryType
 import com.dmood.app.domain.model.Decision
 import com.dmood.app.domain.model.DecisionTone
 import com.dmood.app.domain.model.EmotionType
-import com.dmood.app.domain.usecase.DailyMood
+import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import java.time.format.TextStyle
 import java.util.Locale
 
@@ -14,119 +17,317 @@ data class InsightRuleResult(
     val tag: String
 )
 
+/**
+ * Motor de reglas para generar insights cualitativos a partir de una lista de decisiones.
+ *
+ * Todas las reglas son deterministas: mismas decisiones -> mismos insights.
+ * El foco está en describir lo que ocurre, no en dar consejos.
+ */
 class GenerateInsightRulesUseCase(
+    @Suppress("unused")
     private val calculateDailyMoodUseCase: CalculateDailyMoodUseCase
 ) {
 
-    operator fun invoke(
-        decisions: List<Decision>,
-        zoneId: ZoneId = ZoneId.systemDefault()
-    ): List<InsightRuleResult> {
+    private val zoneId: ZoneId = ZoneId.systemDefault()
+
+    operator fun invoke(decisions: List<Decision>): List<InsightRuleResult> {
         if (decisions.isEmpty()) return emptyList()
 
-        val total = decisions.size.toFloat()
-        val emotionFrequency = EmotionType.values().associateWith { emotion ->
-            decisions.count { it.emotions.contains(emotion) }
+        val ctx = buildContext(decisions)
+        val results = mutableListOf<InsightRuleResult>()
+
+        applyGlobalEmotionRules(ctx, results)
+        applyToneRules(ctx, results)
+        applyGlobalIntensityRules(ctx, results)
+        applyEmotionDiversityRules(ctx, results)
+        applyCategoryFocusRules(ctx, results)
+        applyCategoryEmotionRules(ctx, results)
+        applyCategoryIntensityRules(ctx, results)
+        applyTemporalRules(ctx, results)
+        applyCategoryUsageRules(ctx, results)
+
+        return results.distinctBy { it.title }
+    }
+
+    // ---------- CONTEXTO COMPARTIDO ENTRE REGLAS ----------
+
+    private data class RuleContext(
+        val decisions: List<Decision>,
+        val total: Int,
+        val emotionCounts: Map<EmotionType, Int>,
+        val toneCounts: Map<DecisionTone, Int>,
+        val decisionsByCategory: Map<CategoryType, List<Decision>>,
+        val decisionsByDay: Map<LocalDate, List<Decision>>,
+        val firstTimestamp: Long,
+        val lastTimestamp: Long,
+        val averageIntensity: Double,
+        val highIntensityRatio: Double
+    )
+
+    private fun buildContext(decisions: List<Decision>): RuleContext {
+        val total = decisions.size
+
+        val emotionCounts = decisions
+            .flatMap { it.emotions }
+            .groupingBy { it }
+            .eachCount()
+
+        val toneCounts = decisions
+            .groupingBy { it.tone }
+            .eachCount()
+
+        val decisionsByCategory = decisions.groupBy { it.category }
+
+        val decisionsByDay = decisions.groupBy { decision ->
+            Instant.ofEpochMilli(decision.timestamp).atZone(zoneId).toLocalDate()
         }
-        val toneCounts = decisions.groupingBy { it.tone }.eachCount()
+
+        val sortedByTime = decisions.sortedBy { it.timestamp }
+        val firstTs = sortedByTime.first().timestamp
+        val lastTs = sortedByTime.last().timestamp
+
         val averageIntensity = decisions.map { it.intensity }.average()
+        val highIntensityRatio = if (total == 0) 0.0
+        else decisions.count { it.intensity >= 4 }.toDouble() / total.toDouble()
 
-        val mostUsedEmotion = emotionFrequency.maxByOrNull { it.value }
-        val uniqueEmotions = emotionFrequency.count { it.value > 0 }
+        return RuleContext(
+            decisions = decisions,
+            total = total,
+            emotionCounts = emotionCounts,
+            toneCounts = toneCounts,
+            decisionsByCategory = decisionsByCategory,
+            decisionsByDay = decisionsByDay,
+            firstTimestamp = firstTs,
+            lastTimestamp = lastTs,
+            averageIntensity = averageIntensity,
+            highIntensityRatio = highIntensityRatio
+        )
+    }
 
-        val rules = mutableListOf<InsightRuleResult>()
+    // ---------- EMOCIÓN GLOBAL ----------
 
-        mostUsedEmotion?.let { (emotion, count) ->
-            val ratio = count / total
-            if (ratio >= 0.7f) {
-                rules += InsightRuleResult(
-                    title = "Decisiones impulsadas por ${emotion.displayName}",
-                    description = "El ${ratio.toPercentage()} de tus decisiones han estado teñidas por ${emotion.displayName.lowercase()}.",
-                    tag = "Emoción dominante"
+    private fun applyGlobalEmotionRules(ctx: RuleContext, out: MutableList<InsightRuleResult>) {
+        if (ctx.emotionCounts.isEmpty()) return
+
+        val (dominantEmotion, count) = ctx.emotionCounts.maxByOrNull { it.value } ?: return
+        val ratio = count.toFloat() / ctx.total.toFloat()
+        val percentage = ratio.toPercentage()
+
+        if (ratio >= 0.5f) {
+            out += InsightRuleResult(
+                title = "Emoción más presente: ${dominantEmotion.displayName}",
+                description = "En aproximadamente $percentage de tus decisiones de esta semana está presente ${dominantEmotion.displayName.lowercase()}. " +
+                        "Es el estado emocional que más ha acompañado tus elecciones.",
+                tag = "Emoción dominante"
+            )
+        }
+    }
+
+    // ---------- TONO GLOBAL (SIN JUICIO, SOLO DATO) ----------
+
+    private fun applyToneRules(ctx: RuleContext, out: MutableList<InsightRuleResult>) {
+        val total = ctx.total.toFloat()
+        if (total == 0f) return
+
+        val impulsiveRatio = (ctx.toneCounts[DecisionTone.IMPULSIVA] ?: 0) / total
+        val calmRatio = (ctx.toneCounts[DecisionTone.CALMADA] ?: 0) / total
+        val neutralRatio = (ctx.toneCounts[DecisionTone.NEUTRA] ?: 0) / total
+
+        val maxRatio = listOf(
+            DecisionTone.IMPULSIVA to impulsiveRatio,
+            DecisionTone.CALMADA to calmRatio,
+            DecisionTone.NEUTRA to neutralRatio
+        ).maxByOrNull { it.second } ?: return
+
+        val (dominantTone, ratio) = maxRatio
+        if (ratio < 0.5f) return
+
+        val toneLabel = when (dominantTone) {
+            DecisionTone.IMPULSIVA -> "impulsivo"
+            DecisionTone.CALMADA -> "calmado"
+            DecisionTone.NEUTRA -> "neutral"
+        }
+
+        out += InsightRuleResult(
+            title = "Tono predominante: $toneLabel",
+            description = "Alrededor de ${ratio.toPercentage()} de tus decisiones se registran con un tono $toneLabel. " +
+                    "Es la forma más habitual en la que has tomado decisiones esta semana.",
+            tag = "Tono"
+        )
+    }
+
+    // ---------- INTENSIDAD GLOBAL ----------
+
+    private fun applyGlobalIntensityRules(ctx: RuleContext, out: MutableList<InsightRuleResult>) {
+        val avg = ctx.averageIntensity
+        val highRatio = ctx.highIntensityRatio
+
+        if (ctx.total < 3) return
+
+        when {
+            highRatio >= 0.5 -> {
+                out += InsightRuleResult(
+                    title = "Semana con muchas decisiones intensas",
+                    description = "Una parte importante de tus decisiones (aprox. ${highRatio.toPercentage()}) se ha registrado con intensidad alta (≥ 4). " +
+                            "La semana se ha vivido con bastante carga en el momento de decidir.",
+                    tag = "Intensidad"
+                )
+            }
+
+            avg <= 2.0 -> {
+                out += InsightRuleResult(
+                    title = "Semana de decisiones más suaves",
+                    description = "La intensidad media de tus decisiones se sitúa alrededor de ${"%.1f".format(avg)} sobre 5. " +
+                            "La mayor parte de elecciones se han percibido como poco intensas.",
+                    tag = "Intensidad"
+                )
+            }
+        }
+    }
+
+    // ---------- DIVERSIDAD EMOCIONAL ----------
+
+    private fun applyEmotionDiversityRules(ctx: RuleContext, out: MutableList<InsightRuleResult>) {
+        val distinctEmotions = ctx.emotionCounts.keys.size
+        val totalPossible = EmotionType.values().size
+        if (ctx.total < 4 || totalPossible == 0) return
+
+        val ratio = distinctEmotions.toFloat() / totalPossible.toFloat()
+
+        if (ratio <= 0.3f) {
+            out += InsightRuleResult(
+                title = "Te mueves entre pocas emociones",
+                description = "Esta semana se han repetido sobre todo ${distinctEmotions} emociones distintas, sobre un total posible de $totalPossible. " +
+                        "Tu paleta emocional registrada ha sido bastante concentrada.",
+                tag = "Patrón emocional"
+            )
+        }
+    }
+
+    // ---------- CATEGORÍA MÁS PRESENTE ----------
+
+    private fun applyCategoryFocusRules(ctx: RuleContext, out: MutableList<InsightRuleResult>) {
+        if (ctx.decisionsByCategory.isEmpty()) return
+
+        val (category, decisions) = ctx.decisionsByCategory.maxByOrNull { it.value.size } ?: return
+        if (decisions.size < 2) return
+
+        val ratio = decisions.size.toFloat() / ctx.total.toFloat()
+
+        out += InsightRuleResult(
+            title = "Área más presente: ${category.displayName}",
+            description = "Aproximadamente ${ratio.toPercentage()} de tus decisiones han tenido que ver con ${category.displayName.lowercase()}. " +
+                    "Es el tema que más ha aparecido en tu semana.",
+            tag = "Áreas"
+        )
+    }
+
+    // ---------- EMOCIÓN + CATEGORÍA ----------
+
+    private fun applyCategoryEmotionRules(ctx: RuleContext, out: MutableList<InsightRuleResult>) {
+        ctx.decisionsByCategory.forEach { (category, decisionsInCategory) ->
+            if (decisionsInCategory.size < 3) return@forEach
+
+            val emotionCounts = EmotionType.values().associateWith { emotion ->
+                decisionsInCategory.count { decision -> emotion in decision.emotions }
+            }
+
+            val (dominantEmotion, count) = emotionCounts.maxByOrNull { it.value } ?: return@forEach
+            if (count == 0) return@forEach
+
+            val ratio = count.toFloat() / decisionsInCategory.size.toFloat()
+            if (ratio < 0.6f) return@forEach
+
+            val percentage = ratio.toPercentage()
+
+            out += InsightRuleResult(
+                title = "${dominantEmotion.displayName} en ${category.displayName}",
+                description = "En torno al $percentage de las decisiones sobre ${category.displayName.lowercase()} aparecen asociadas a ${dominantEmotion.displayName.lowercase()}. " +
+                        "Esta emoción está muy ligada a cómo decides en esa área.",
+                tag = "Emoción en área"
+            )
+        }
+    }
+
+    // ---------- INTENSIDAD POR CATEGORÍA ----------
+
+    private fun applyCategoryIntensityRules(ctx: RuleContext, out: MutableList<InsightRuleResult>) {
+        ctx.decisionsByCategory.forEach { (category, decisionsInCategory) ->
+            if (decisionsInCategory.size < 3) return@forEach
+
+            val highIntensityCount = decisionsInCategory.count { it.intensity >= 4 }
+            if (highIntensityCount == 0) return@forEach
+
+            val ratio = highIntensityCount.toFloat() / decisionsInCategory.size.toFloat()
+            if (ratio < 0.6f) return@forEach
+
+            out += InsightRuleResult(
+                title = "Intensidad alta en ${category.displayName}",
+                description = "Una parte considerable de las decisiones sobre ${category.displayName.lowercase()} se ha registrado con intensidad alta (aprox. ${ratio.toPercentage()}). " +
+                        "Esta área se vive con bastante intensidad al decidir.",
+                tag = "Intensidad en área"
+            )
+        }
+    }
+
+    // ---------- PATRONES TEMPORALES ----------
+
+    private fun applyTemporalRules(ctx: RuleContext, out: MutableList<InsightRuleResult>) {
+        // Día con más carga negativa
+        if (ctx.decisionsByDay.isNotEmpty()) {
+            val negativeByDay = ctx.decisionsByDay.mapValues { (_, decisionsInDay) ->
+                decisionsInDay.count { d -> d.emotions.any { it.isNegative() } }
+            }
+
+            val (worstDay, negativeCount) = negativeByDay.maxByOrNull { it.value } ?: return
+            if (negativeCount >= 2) {
+                val dayName = worstDay.dayOfWeek.getDisplayName(TextStyle.FULL, Locale("es", "ES"))
+                out += InsightRuleResult(
+                    title = "Día con más carga emocional negativa",
+                    description = "El día de la semana con más decisiones asociadas a emociones negativas ha sido el $dayName.",
+                    tag = "Ritmo semanal"
                 )
             }
         }
 
-        val impulsiveRatio = (toneCounts[DecisionTone.IMPULSIVA] ?: 0) / total
-        if (impulsiveRatio >= 0.55f) {
-            rules += InsightRuleResult(
-                title = "Predominio impulsivo",
-                description = "${(impulsiveRatio * 100).toInt()}% de las decisiones nacieron desde un impulso. Date un respiro antes de decidir.",
-                tag = "Autocontrol"
-            )
-        }
+        // Decisiones concentradas en poco tiempo (ventana temporal)
+        val hoursBetween = ChronoUnit.HOURS.between(
+            Instant.ofEpochMilli(ctx.firstTimestamp),
+            Instant.ofEpochMilli(ctx.lastTimestamp)
+        )
 
-        val calmRatio = (toneCounts[DecisionTone.CALMADA] ?: 0) / total
-        if (calmRatio >= 0.6f) {
-            rules += InsightRuleResult(
-                title = "Fortaleza serena",
-                description = "${(calmRatio * 100).toInt()}% de tus decisiones se tomaron con calma. Mantén esos rituales que te centran.",
-                tag = "Serenidad"
-            )
-        }
-
-        if (averageIntensity >= 4.2) {
-            rules += InsightRuleResult(
-                title = "Semanas intensas",
-                description = "Tu media de intensidad ha sido ${"%.1f".format(averageIntensity)} / 5. Reduce ruido planificando microdescansos.",
-                tag = "Gestión de energía"
-            )
-        }
-
-        val topCategory = decisions.groupingBy { it.category }.eachCount().maxByOrNull { it.value }
-        topCategory?.let { (category, count) ->
-            val weight = count / total
-            if (weight >= 0.5f) {
-                rules += InsightRuleResult(
-                    title = "Enfoque en ${category.displayName}",
-                    description = "La mitad de tus decisiones están conectadas con ${category.displayName.lowercase()}. Agenda tiempo específico para ello.",
-                    tag = "Prioridad"
-                )
-            }
-        }
-
-        if (uniqueEmotions <= 2) {
-            rules += InsightRuleResult(
-                title = "Paleta emocional limitada",
-                description = "Solo has navegado por $uniqueEmotions emociones principales. Explora qué otras sensaciones se esconden detrás de cada decisión.",
-                tag = "Autoconocimiento"
-            )
-        }
-
-        val lastTwoDaysCount = decisions.count { decision ->
-            val date = decision.timestamp.toLocalDate(zoneId)
-            val maxDate = decisions.maxOf { it.timestamp }.toLocalDate(zoneId)
-            val daysDiff = java.time.temporal.ChronoUnit.DAYS.between(date, maxDate)
-            daysDiff in 0..1
-        }
-        if (lastTwoDaysCount / total >= 0.5f) {
-            rules += InsightRuleResult(
-                title = "Decisiones concentradas al final",
-                description = "Más de la mitad de tus decisiones se acumularon en las últimas 48h. Reserva espacios regulares para decidir con claridad.",
+        if (ctx.total >= 5 && hoursBetween <= 48) {
+            out += InsightRuleResult(
+                title = "Muchas decisiones en poco tiempo",
+                description = "Varias decisiones se han concentrado en un intervalo temporal inferior a 48 horas. " +
+                        "La semana ha tenido un tramo especialmente denso en cuanto a elecciones.",
                 tag = "Ritmo"
             )
         }
-
-        val moodByDay = decisions.groupBy { it.timestamp.toLocalDate(zoneId) }
-            .mapValues { (_, dayDecisions) -> calculateDailyMoodUseCase(dayDecisions) }
-        val negativeStreak = moodByDay.filterValues { it == DailyMood.NEGATIVO }
-        if (negativeStreak.isNotEmpty()) {
-            val worstDay = negativeStreak.keys.maxByOrNull { it }?.dayOfWeek
-            worstDay?.let { day ->
-                rules += InsightRuleResult(
-                    title = "Día más retador",
-                    description = "Tus emociones se tensan los ${day.getDisplayName(TextStyle.FULL, Locale("es", "ES"))}. Planifica algo ligero ese día.",
-                    tag = "Prevención"
-                )
-            }
-        }
-
-        return rules.distinctBy { it.title }
     }
+
+    // ---------- CATEGORÍAS SIN DECISIONES ----------
+
+    private fun applyCategoryUsageRules(ctx: RuleContext, out: MutableList<InsightRuleResult>) {
+        if (ctx.total < 5) return
+
+        val unusedCategories = CategoryType.values().filter { it !in ctx.decisionsByCategory.keys }
+        if (unusedCategories.isEmpty()) return
+
+        // Para no saturar, solo destacamos una
+        val target = unusedCategories.first()
+
+        out += InsightRuleResult(
+            title = "Área sin decisiones: ${target.displayName}",
+            description = "Esta semana no se han registrado decisiones relacionadas con ${target.displayName.lowercase()}. " +
+                    "En los datos de la app, esa área aparece ausente.",
+            tag = "Equilibrio"
+        )
+    }
+
+    // ---------- HELPERS ----------
+
+    private fun Float.toPercentage(): String = "${(this * 100).toInt()}%"
+
+    private fun Double.toPercentage(): String = "${(this * 100).toInt()}%"
 }
-
-private fun Float.toPercentage(): String = "${(this * 100).toInt()}%"
-
-private fun Long.toLocalDate(zoneId: ZoneId): java.time.LocalDate =
-    java.time.Instant.ofEpochMilli(this).atZone(zoneId).toLocalDate()
-

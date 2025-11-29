@@ -5,8 +5,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -58,12 +60,8 @@ fun SettingsScreen(
             DmoodTopBar(
                 title = "Ajustes",
                 subtitle = "Personaliza tu espacio",
-                showLogo = true,
-                actions = {
-                    TextButton(onClick = onBack) {
-                        Text("Cerrar", color = MaterialTheme.colorScheme.onPrimaryContainer)
-                    }
-                }
+                showLogo = true
+                // sin botón de cerrar ni acciones extra
             )
         }
     ) { innerPadding ->
@@ -74,11 +72,7 @@ fun SettingsScreen(
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            Text(
-                text = "Tu espacio personal",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.SemiBold
-            )
+            // Eliminado el título "Tu espacio personal" para ganar espacio
 
             SettingsSection(title = "Cuenta") {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -195,6 +189,9 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            // Espacio extra al final para que las últimas tarjetas no queden “pegadas” al borde inferior
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -211,7 +208,10 @@ private fun SettingsSection(
         )
         Card(
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface // blanco, como en Home
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
