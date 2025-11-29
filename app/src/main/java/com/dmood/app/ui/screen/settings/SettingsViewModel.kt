@@ -3,8 +3,10 @@ package com.dmood.app.ui.screen.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dmood.app.data.preferences.UserPreferencesRepository
+import com.dmood.app.reminder.ReminderScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class SettingsUiState(
@@ -13,11 +15,14 @@ data class SettingsUiState(
     val isSaving: Boolean = false,
     val feedbackMessage: String? = null,
     val errorMessage: String? = null,
-    val weekStartDay: java.time.DayOfWeek = java.time.DayOfWeek.MONDAY
+    val weekStartDay: java.time.DayOfWeek = java.time.DayOfWeek.MONDAY,
+    val dailyReminderEnabled: Boolean = true,
+    val weeklyReminderEnabled: Boolean = false
 )
 
 class SettingsViewModel(
-    private val userPreferencesRepository: UserPreferencesRepository
+    private val userPreferencesRepository: UserPreferencesRepository,
+    private val reminderScheduler: ReminderScheduler
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -26,6 +31,7 @@ class SettingsViewModel(
     init {
         loadCurrentName()
         observeWeekStart()
+        observeReminders()
     }
 
     private fun loadCurrentName() {
@@ -42,6 +48,19 @@ class SettingsViewModel(
         viewModelScope.launch {
             userPreferencesRepository.weekStartDayFlow.collect { stored ->
                 _uiState.value = _uiState.value.copy(weekStartDay = stored)
+            }
+        }
+    }
+
+    private fun observeReminders() {
+        viewModelScope.launch {
+            userPreferencesRepository.dailyReminderEnabledFlow.collect { enabled ->
+                _uiState.update { it.copy(dailyReminderEnabled = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            userPreferencesRepository.weeklyReminderEnabledFlow.collect { enabled ->
+                _uiState.update { it.copy(weeklyReminderEnabled = enabled) }
             }
         }
     }
@@ -90,6 +109,30 @@ class SettingsViewModel(
         _uiState.value = _uiState.value.copy(weekStartDay = dayOfWeek, feedbackMessage = null)
         viewModelScope.launch {
             userPreferencesRepository.setWeekStartDay(dayOfWeek)
+        }
+    }
+
+    fun setDailyReminderEnabled(enabled: Boolean) {
+        _uiState.update { it.copy(dailyReminderEnabled = enabled) }
+        viewModelScope.launch {
+            userPreferencesRepository.setDailyReminderEnabled(enabled)
+            if (enabled) {
+                reminderScheduler.scheduleDailyReminder()
+            } else {
+                reminderScheduler.cancelDailyReminder()
+            }
+        }
+    }
+
+    fun setWeeklyReminderEnabled(enabled: Boolean) {
+        _uiState.update { it.copy(weeklyReminderEnabled = enabled) }
+        viewModelScope.launch {
+            userPreferencesRepository.setWeeklyReminderEnabled(enabled)
+            if (enabled) {
+                reminderScheduler.scheduleWeeklySummaryReminder()
+            } else {
+                reminderScheduler.cancelWeeklySummaryReminder()
+            }
         }
     }
 }

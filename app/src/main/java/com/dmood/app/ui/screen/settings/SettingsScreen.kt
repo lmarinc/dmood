@@ -1,5 +1,9 @@
 package com.dmood.app.ui.screen.settings
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -10,7 +14,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.AssistChip
@@ -30,11 +36,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dmood.app.ui.DmoodViewModelFactory
 import com.dmood.app.ui.components.DmoodTopBar
@@ -51,8 +59,34 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = viewModel(factory = DmoodViewModelFactory)
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var dailyReminderEnabled by rememberSaveable { mutableStateOf(true) }
-    var weeklyReminderEnabled by rememberSaveable { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
+    val context = LocalContext.current
+    var pendingReminderAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { granted ->
+            if (granted) {
+                pendingReminderAction?.invoke()
+            }
+            pendingReminderAction = null
+        }
+    )
+
+    fun ensureNotificationPermission(onGranted: () -> Unit) {
+        val needsPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+
+        if (needsPermission) {
+            pendingReminderAction = onGranted
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            onGranted()
+        }
+    }
 
     Scaffold(
         modifier = modifier,
@@ -69,7 +103,8 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(24.dp),
+                .padding(24.dp)
+                .verticalScroll(scrollState),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             // Eliminado el título "Tu espacio personal" para ganar espacio
@@ -110,16 +145,32 @@ fun SettingsScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     ReminderRow(
                         label = "Recordatorio diario",
-                        checked = dailyReminderEnabled,
-                        onCheckedChange = { dailyReminderEnabled = it }
+                        checked = uiState.dailyReminderEnabled,
+                        onCheckedChange = { enabled ->
+                            if (enabled) {
+                                ensureNotificationPermission {
+                                    viewModel.setDailyReminderEnabled(true)
+                                }
+                            } else {
+                                viewModel.setDailyReminderEnabled(false)
+                            }
+                        }
                     )
                     ReminderRow(
                         label = "Resumen semanal",
-                        checked = weeklyReminderEnabled,
-                        onCheckedChange = { weeklyReminderEnabled = it }
+                        checked = uiState.weeklyReminderEnabled,
+                        onCheckedChange = { enabled ->
+                            if (enabled) {
+                                ensureNotificationPermission {
+                                    viewModel.setWeeklyReminderEnabled(true)
+                                }
+                            } else {
+                                viewModel.setWeeklyReminderEnabled(false)
+                            }
+                        }
                     )
                     Text(
-                        text = "Muy pronto podrás personalizar avisos reales desde aquí.",
+                        text = "Te avisaremos a las 22:00 si falta tu registro y cuando haya un nuevo resumen semanal.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

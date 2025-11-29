@@ -63,7 +63,8 @@ object DmoodViewModelFactory : ViewModelProvider.Factory {
 
             modelClass.isAssignableFrom(SettingsViewModel::class.java) -> {
                 SettingsViewModel(
-                    userPreferencesRepository = locator.userPreferencesRepository
+                    userPreferencesRepository = locator.userPreferencesRepository,
+                    reminderScheduler = locator.reminderScheduler
                 ) as T
             }
 

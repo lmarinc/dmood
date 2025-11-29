@@ -13,6 +13,7 @@ import com.dmood.app.domain.usecase.CalculateWeeklyScheduleUseCase
 import com.dmood.app.domain.usecase.ExtractWeeklyHighlightsUseCase
 import com.dmood.app.domain.usecase.GenerateInsightRulesUseCase
 import com.dmood.app.domain.usecase.ValidateDecisionUseCase
+import com.dmood.app.reminder.ReminderScheduler
 
 object DmoodServiceLocator {
 
@@ -62,6 +63,10 @@ object DmoodServiceLocator {
 
     val generateInsightRulesUseCase: GenerateInsightRulesUseCase by lazy {
         GenerateInsightRulesUseCase(calculateDailyMoodUseCase)
+    }
+
+    val reminderScheduler: ReminderScheduler by lazy {
+        ReminderScheduler(appContext, userPreferencesRepository)
     }
 
     fun init(context: Context) {

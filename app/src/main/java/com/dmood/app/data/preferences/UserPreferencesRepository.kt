@@ -28,6 +28,9 @@ class UserPreferencesRepository(private val context: Context) {
         private val CARD_LAYOUT_KEY = stringPreferencesKey("card_layout_mode")
         private val WEEK_START_DAY_KEY = stringPreferencesKey("week_start_day")
         private val FIRST_USE_DATE_KEY = longPreferencesKey("first_use_date")
+        private val DAILY_REMINDER_ENABLED_KEY = booleanPreferencesKey("daily_reminder_enabled")
+        private val WEEKLY_REMINDER_ENABLED_KEY = booleanPreferencesKey("weekly_reminder_enabled")
+        private val LAST_WEEKLY_REMINDER_ANCHOR_KEY = stringPreferencesKey("last_weekly_anchor")
         private const val DEFAULT_WEEK_START = "MONDAY"
         private const val DEFAULT_CARD_LAYOUT = "COZY"
     }
@@ -54,6 +57,14 @@ class UserPreferencesRepository(private val context: Context) {
         prefs[FIRST_USE_DATE_KEY]
     }
 
+    val dailyReminderEnabledFlow: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[DAILY_REMINDER_ENABLED_KEY] ?: true
+    }
+
+    val weeklyReminderEnabledFlow: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[WEEKLY_REMINDER_ENABLED_KEY] ?: false
+    }
+
     suspend fun hasSeenOnboarding(): Boolean = onboardingStatusFlow.first()
 
     suspend fun setHasSeenOnboarding(value: Boolean) {
@@ -74,6 +85,33 @@ class UserPreferencesRepository(private val context: Context) {
         dataStore.edit { prefs ->
             prefs[CARD_LAYOUT_KEY] = mode
         }
+    }
+
+    suspend fun setDailyReminderEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[DAILY_REMINDER_ENABLED_KEY] = enabled
+        }
+    }
+
+    suspend fun isDailyReminderEnabled(): Boolean = dailyReminderEnabledFlow.first()
+
+    suspend fun setWeeklyReminderEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[WEEKLY_REMINDER_ENABLED_KEY] = enabled
+        }
+    }
+
+    suspend fun isWeeklyReminderEnabled(): Boolean = weeklyReminderEnabledFlow.first()
+
+    suspend fun setLastWeeklyReminderAnchor(anchor: LocalDate) {
+        dataStore.edit { prefs ->
+            prefs[LAST_WEEKLY_REMINDER_ANCHOR_KEY] = anchor.toString()
+        }
+    }
+
+    suspend fun getLastWeeklyReminderAnchor(): LocalDate? {
+        val stored = dataStore.data.first()[LAST_WEEKLY_REMINDER_ANCHOR_KEY]
+        return stored?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
     }
 
     suspend fun setWeekStartDay(dayOfWeek: DayOfWeek) {
