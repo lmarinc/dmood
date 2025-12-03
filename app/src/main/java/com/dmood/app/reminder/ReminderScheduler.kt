@@ -5,6 +5,8 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.dmood.app.data.preferences.UserPreferencesRepository
@@ -19,6 +21,7 @@ class ReminderScheduler(
 
     companion object {
         private const val DAILY_REMINDER_WORK_NAME = "daily_reminder_work"
+        private const val DAILY_REMINDER_FALLBACK_WORK_NAME = "daily_reminder_fallback_work"
         private const val WEEKLY_SUMMARY_WORK_NAME = "weekly_summary_work"
 
         // Código de petición para el PendingIntent del recordatorio diario
@@ -66,25 +69,41 @@ class ReminderScheduler(
 
         val pendingIntent = dailyReminderPendingIntent()
 
-        // Para API >= 23 usamos setExactAndAllowWhileIdle, para anteriores setExact
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-            alarmManager.setExactAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                triggerAtMillis,
-                pendingIntent
-            )
-        } else {
-            alarmManager.setExact(
-                AlarmManager.RTC_WAKEUP,
-                triggerAtMillis,
-                pendingIntent
-            )
+        val canScheduleExact =
+            android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S ||
+                alarmManager.canScheduleExactAlarms()
+
+        if (!canScheduleExact) {
+            scheduleDailyReminderFallback(triggerAtMillis)
+            return
+        }
+
+        runCatching {
+            // Para API >= 23 usamos setExactAndAllowWhileIdle, para anteriores setExact
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerAtMillis,
+                    pendingIntent
+                )
+            } else {
+                alarmManager.setExact(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerAtMillis,
+                    pendingIntent
+                )
+            }
+            // Cancelamos cualquier fallback previo si hemos podido programar la alarma exacta
+            cancelDailyReminderFallback()
+        }.getOrElse {
+            scheduleDailyReminderFallback(triggerAtMillis)
         }
     }
 
     fun cancelDailyReminder() {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         alarmManager.cancel(dailyReminderPendingIntent())
+        cancelDailyReminderFallback()
     }
 
     /**
@@ -138,5 +157,22 @@ class ReminderScheduler(
             .atZone(ZoneId.systemDefault())
             .toInstant()
             .toEpochMilli()
+    }
+
+    private fun scheduleDailyReminderFallback(triggerAtMillis: Long) {
+        val delayMinutes = TimeUnit.MILLISECONDS.toMinutes(triggerAtMillis - System.currentTimeMillis())
+        val request = OneTimeWorkRequestBuilder<DailyReminderWorker>()
+            .setInitialDelay(delayMinutes, TimeUnit.MINUTES)
+            .build()
+
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            DAILY_REMINDER_FALLBACK_WORK_NAME,
+            ExistingWorkPolicy.REPLACE,
+            request
+        )
+    }
+
+    private fun cancelDailyReminderFallback() {
+        WorkManager.getInstance(context).cancelUniqueWork(DAILY_REMINDER_FALLBACK_WORK_NAME)
     }
 }
