@@ -29,7 +29,7 @@ class ReminderScheduler(
 
         // HORA “REAL” DEL RECORDATORIO DIARIO (PRODUCCIÓN)
         const val DAILY_REMINDER_HOUR_DEFAULT = 21
-        const val DAILY_REMINDER_MINUTE_DEFAULT = 15
+        const val DAILY_REMINDER_MINUTE_DEFAULT = 00
 
         // HORA DE PRUEBA (CAMBIABLE RÁPIDO MIENTRAS DESARROLLAS)
         // Por ejemplo, 13:30
