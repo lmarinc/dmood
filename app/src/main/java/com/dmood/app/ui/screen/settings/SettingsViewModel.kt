@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.DayOfWeek
 
 data class SettingsUiState(
     val currentName: String = "",
@@ -15,7 +16,7 @@ data class SettingsUiState(
     val isSaving: Boolean = false,
     val feedbackMessage: String? = null,
     val errorMessage: String? = null,
-    val weekStartDay: java.time.DayOfWeek = java.time.DayOfWeek.MONDAY,
+    val weekStartDay: DayOfWeek = DayOfWeek.MONDAY,
     val dailyReminderEnabled: Boolean = true,
     val weeklyReminderEnabled: Boolean = false
 )
@@ -105,25 +106,43 @@ class SettingsViewModel(
         _uiState.value = _uiState.value.copy(feedbackMessage = null)
     }
 
-    fun onWeekStartChange(dayOfWeek: java.time.DayOfWeek) {
+    fun onWeekStartChange(dayOfWeek: DayOfWeek) {
         _uiState.value = _uiState.value.copy(weekStartDay = dayOfWeek, feedbackMessage = null)
         viewModelScope.launch {
             userPreferencesRepository.setWeekStartDay(dayOfWeek)
         }
     }
 
+    /**
+     * Activa / desactiva el recordatorio diario.
+     * Cuando se activa, programa la alarma con AlarmManager.
+     */
     fun setDailyReminderEnabled(enabled: Boolean) {
         _uiState.update { it.copy(dailyReminderEnabled = enabled) }
         viewModelScope.launch {
             userPreferencesRepository.setDailyReminderEnabled(enabled)
             if (enabled) {
-                reminderScheduler.scheduleDailyReminder()
+                // PRODUCCIÓN: 22:00
+                reminderScheduler.scheduleDailyReminder(
+                    ReminderScheduler.DAILY_REMINDER_HOUR_DEFAULT,
+                    ReminderScheduler.DAILY_REMINDER_MINUTE_DEFAULT
+                )
+
+                // PARA PRUEBA RÁPIDA (por ejemplo 13:30), comenta lo de arriba y descomenta esto:
+                // reminderScheduler.scheduleDailyReminder(
+                //     ReminderScheduler.DAILY_REMINDER_HOUR_TEST,
+                //     ReminderScheduler.DAILY_REMINDER_MINUTE_TEST
+                // )
             } else {
                 reminderScheduler.cancelDailyReminder()
             }
         }
     }
 
+    /**
+     * Activa / desactiva el recordatorio de resumen semanal.
+     * Seguimos usando WorkManager para esta parte (no necesita hora exacta).
+     */
     fun setWeeklyReminderEnabled(enabled: Boolean) {
         _uiState.update { it.copy(weeklyReminderEnabled = enabled) }
         viewModelScope.launch {
