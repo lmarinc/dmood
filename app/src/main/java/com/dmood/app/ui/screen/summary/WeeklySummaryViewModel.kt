@@ -27,7 +27,8 @@ data class WeeklySummaryUiState(
     val insights: List<com.dmood.app.domain.usecase.InsightRuleResult> = emptyList(),
     val nextSummaryDate: LocalDate? = null,
     val isSummaryAvailable: Boolean = false,
-    val isDemo: Boolean = false
+    val isDemo: Boolean = false,
+    val weekStartDay: DayOfWeek = DayOfWeek.MONDAY
 )
 
 class WeeklySummaryViewModel(
@@ -72,6 +73,7 @@ class WeeklySummaryViewModel(
         viewModelScope.launch {
             userPreferencesRepository.weekStartDayFlow.collect { stored ->
                 weekStartDay = stored
+                _uiState.value = _uiState.value.copy(weekStartDay = stored)
                 triggerReloadIfReady()
             }
         }
@@ -116,7 +118,8 @@ class WeeklySummaryViewModel(
                         errorMessage = "Tu próximo resumen estará listo el ${schedule.nextSummaryDate}",
                         nextSummaryDate = schedule.nextSummaryDate,
                         isSummaryAvailable = false,
-                        isDemo = false
+                        isDemo = false,
+                        weekStartDay = weekStartDay
                     )
                     return@launch
                 }
@@ -140,7 +143,8 @@ class WeeklySummaryViewModel(
                     insights = insights,
                     nextSummaryDate = schedule.nextSummaryDate,
                     isSummaryAvailable = schedule.isSummaryAvailable,
-                    isDemo = false
+                    isDemo = false,
+                    weekStartDay = weekStartDay
                 )
             } catch (e: Exception) {
                 _uiState.value = WeeklySummaryUiState(
@@ -150,7 +154,8 @@ class WeeklySummaryViewModel(
                     errorMessage = "No se pudo cargar el resumen semanal.",
                     nextSummaryDate = null,
                     isSummaryAvailable = false,
-                    isDemo = false
+                    isDemo = false,
+                    weekStartDay = weekStartDay
                 )
             }
         }
@@ -196,7 +201,8 @@ class WeeklySummaryViewModel(
             insights = emptyList(),
             nextSummaryDate = _uiState.value.nextSummaryDate,
             isSummaryAvailable = true,
-            isDemo = true
+            isDemo = true,
+            weekStartDay = _uiState.value.weekStartDay
         )
     }
 }

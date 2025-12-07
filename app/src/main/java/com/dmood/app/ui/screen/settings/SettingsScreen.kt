@@ -225,21 +225,21 @@ fun SettingsScreen(
                 }
             }
 
-            SettingsSection(title = "Histórico semanal") {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        text = "Descarga los resúmenes semanales en PDF para revisarlos cuando quieras.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Button(
-                        onClick = onOpenWeeklyHistory,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Abrir histórico")
-                    }
-                }
-            }
+//            SettingsSection(title = "Histórico semanal") {
+//                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+//                    Text(
+//                        text = "Descarga los resúmenes semanales en PDF para revisarlos cuando quieras.",
+//                        style = MaterialTheme.typography.bodyMedium,
+//                        color = MaterialTheme.colorScheme.onSurfaceVariant
+//                    )
+//                    Button(
+//                        onClick = onOpenWeeklyHistory,
+//                        modifier = Modifier.fillMaxWidth()
+//                    ) {
+//                        Text("Abrir histórico")
+//                    }
+//                }
+//            }
 
             // Espacio extra al final para que las últimas tarjetas no queden “pegadas” al borde inferior
             Spacer(modifier = Modifier.height(16.dp))

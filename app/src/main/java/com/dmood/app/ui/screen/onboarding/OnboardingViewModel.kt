@@ -3,6 +3,7 @@ package com.dmood.app.ui.screen.onboarding
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dmood.app.data.preferences.UserPreferencesRepository
+import java.time.DayOfWeek
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -11,7 +12,8 @@ data class OnboardingUiState(
     val name: String = "",
     val isSaving: Boolean = false,
     val errorMessage: String? = null,
-    val completed: Boolean = false
+    val completed: Boolean = false,
+    val weekStartDay: DayOfWeek = DayOfWeek.MONDAY
 )
 
 class OnboardingViewModel(
@@ -20,6 +22,10 @@ class OnboardingViewModel(
 
     private val _uiState = MutableStateFlow(OnboardingUiState())
     val uiState: StateFlow<OnboardingUiState> = _uiState
+
+    init {
+        observeWeekStartDay()
+    }
 
     fun onNameChange(newName: String) {
         _uiState.value = _uiState.value.copy(
@@ -51,6 +57,14 @@ class OnboardingViewModel(
                     isSaving = false,
                     errorMessage = "No pudimos guardar tu información. Intenta de nuevo."
                 )
+            }
+        }
+    }
+
+    private fun observeWeekStartDay() {
+        viewModelScope.launch {
+            userPreferencesRepository.weekStartDayFlow.collect { day ->
+                _uiState.value = _uiState.value.copy(weekStartDay = day)
             }
         }
     }

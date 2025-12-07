@@ -58,6 +58,7 @@ import com.dmood.app.ui.theme.toUiColor
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -77,6 +78,8 @@ fun WeeklySummaryScreen(
 
     val summary = uiState.summary
     val highlight = uiState.highlight
+    val weekStartLabel = uiState.weekStartDay.getDisplayName(TextStyle.FULL, Locale("es", "ES"))
+        .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale("es", "ES")) else it.toString() }
 
     val weekRange = summary?.let { s ->
         val formatter = DateTimeFormatter.ofPattern("dd MMM", Locale("es", "ES"))
@@ -180,10 +183,6 @@ fun WeeklySummaryScreen(
                             text = uiState.errorMessage ?: "No hemos podido cargar tu resumen.",
                             style = MaterialTheme.typography.bodyMedium
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(onClick = { viewModel.loadWeeklySummary() }) {
-                            Text("Reintentar")
-                        }
                     }
                 }
 
@@ -203,6 +202,7 @@ fun WeeklySummaryScreen(
                                     weekRange = weekRange,
                                     nextSummaryFriendly = nextSummaryFriendly,
                                     isSummaryAvailable = uiState.isSummaryAvailable,
+                                    weekStartLabel = weekStartLabel,
                                     isDemo = uiState.isDemo,
                                     onActionClick = {
                                         viewModel.loadWeeklySummary()
@@ -322,6 +322,7 @@ private fun SummaryHeaderCard(
     weekRange: String?,
     nextSummaryFriendly: String?,
     isSummaryAvailable: Boolean,
+    weekStartLabel: String?,
     isDemo: Boolean,
     onActionClick: () -> Unit
 ) {
@@ -359,6 +360,13 @@ private fun SummaryHeaderCard(
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.primary
+                )
+            }
+            weekStartLabel?.let {
+                Text(
+                    text = "Tu semana empieza el $it",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             nextSummaryFriendly?.let {

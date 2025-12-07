@@ -28,24 +28,24 @@ private data class FaqEntry(val title: String, val body: String)
 
 private val faqEntries = listOf(
     FaqEntry(
-        title = "Qué tipo de decisiones registrar",
-        body = "Anota momentos con carga emocional o relevancia personal: conversaciones difíciles, avances, dudas o micro logros."
+        title = "Qué registrar en \"Hoy\"",
+        body = "Cada decisión guarda un texto breve, hasta dos emociones (Normal es exclusiva), la intensidad que sentiste y la categoría de tu vida donde encaja. Así el tono y el resumen semanal se calculan con más contexto."
     ),
     FaqEntry(
-        title = "Qué no tiene sentido registrar",
-        body = "Acciones totalmente automáticas o sin impacto emocional (ej. cepillarte los dientes) no aportan contexto útil."
+        title = "Cómo se calcula el tono",
+        body = "D-Mood cruza las emociones seleccionadas y la intensidad para clasificar cada decisión como calmada o impulsiva. No se edita a mano, pero puedes ajustar emociones o intensidad si quieres recalcular."
     ),
     FaqEntry(
-        title = "Emociones y cómo usarlas",
-        body = "Puedes elegir hasta dos emociones (NORMAL es exclusiva). Sus colores te ayudarán a reconocer patrones de energía."
+        title = "Categorías y filtros",
+        body = "Elige una categoría (Trabajo/Estudios, Salud/Bienestar, Relaciones, Finanzas, Hábitos, Ocio, Casa u Otro) para dar contexto. Desde la pantalla de Hoy puedes filtrar por categoría y cambiar entre tarjetas compactas o amplias."
     ),
     FaqEntry(
-        title = "Impulsivo vs calmado",
-        body = "El tono se calcula automáticamente: emociones intensas y negativas tienden a marcar decisiones impulsivas, las positivas a calmadas."
+        title = "Editar o borrar decisiones",
+        body = "Toca una tarjeta para editarla. El modo borrar solo aparece en el día actual: activa la papelera, selecciona varias decisiones y confirma. Días pasados quedan bloqueados para evitar perder historial."
     ),
     FaqEntry(
-        title = "Cómo interpretar tu resumen semanal",
-        body = "Verás porcentajes calmadas/impulsivas, días más luminosos o retadores y las áreas donde concentras energía."
+        title = "Cuándo se genera el resumen semanal",
+        body = "El corte se basa en tu día de inicio de semana (Ajustes). Tras los primeros 3 días de uso, cada semana se abre un nuevo resumen con categorías, emociones destacadas y la proporción calmadas/impulsivas."
     )
 )
 
