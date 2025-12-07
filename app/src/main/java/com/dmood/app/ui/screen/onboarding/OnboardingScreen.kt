@@ -69,15 +69,15 @@ fun OnboardingScreen(
         val introSteps = listOf(
             IntroStep(
                 title = "Registra tu día a día",
-                description = "En 'Hoy' añades decisiones rápidas, eliges hasta dos emociones y su intensidad para detectar tono calmado o impulsivo."
+                description = "En 'Hoy' añades decisiones rápidas con emociones e intensidad para recordar mejor el contexto."
             ),
             IntroStep(
                 title = "Organiza con categorías y filtros",
                 description = "Agrupa por áreas como Trabajo, Salud o Relaciones y filtra en la pantalla principal para enfocarte en lo que importa."
             ),
             IntroStep(
-                title = "Lee tu resumen semanal",
-                description = "Según tus registros, verás porcentajes calmado/impulsivo, días con más energía y patrones destacados."
+                title = "Explora tu resumen semanal",
+                description = "Verás tendencias, emociones que se repiten y las categorías donde concentras energía."
             )
         )
 
@@ -96,9 +96,10 @@ fun OnboardingScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 20.dp, vertical = 24.dp)
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 32.dp, bottom = 40.dp)
                     .verticalScroll(scrollState),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+                verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(

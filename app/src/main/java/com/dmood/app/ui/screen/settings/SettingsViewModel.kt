@@ -25,7 +25,7 @@ data class SettingsUiState(
     val feedbackMessage: String? = null,
     val errorMessage: String? = null,
     val weekStartDay: DayOfWeek = DayOfWeek.MONDAY,
-    val dailyReminderEnabled: Boolean = true,
+    val dailyReminderEnabled: Boolean = false,
     val weeklyReminderEnabled: Boolean = false
 )
 
@@ -203,7 +203,7 @@ class SettingsViewModel(
         viewModelScope.launch {
             userPreferencesRepository.setDailyReminderEnabled(enabled)
             if (enabled) {
-                // PRODUCCIÓN: 22:00
+                // PRODUCCIÓN: 21:00
                 reminderScheduler.scheduleDailyReminder(
                     ReminderScheduler.DAILY_REMINDER_HOUR_DEFAULT,
                     ReminderScheduler.DAILY_REMINDER_MINUTE_DEFAULT

@@ -187,7 +187,7 @@ fun SettingsScreen(
                         }
                     )
                     Text(
-                        text = "Te avisaremos a las 22:00 si falta tu registro y cuando haya un nuevo resumen semanal.",
+                        text = "Te avisaremos a las 21:00 si falta tu registro y cuando haya un nuevo resumen semanal.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

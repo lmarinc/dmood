@@ -164,13 +164,6 @@ class WeeklyHistoryViewModel(
                 y += 22f
                 canvas.drawText("Total decisiones: ${item.summary.totalDecisions}", 40f, y, bodyPaint)
                 y += 22f
-                canvas.drawText(
-                    "Calmadas: ${item.summary.calmPercentage.toInt()}% · Impulsivas: ${item.summary.impulsivePercentage.toInt()}%",
-                    40f,
-                    y,
-                    bodyPaint
-                )
-                y += 22f
                 canvas.drawText("Tendencia: ${item.highlight?.emotionalTrend ?: "-"}", 40f, y, bodyPaint)
                 y += 32f
 

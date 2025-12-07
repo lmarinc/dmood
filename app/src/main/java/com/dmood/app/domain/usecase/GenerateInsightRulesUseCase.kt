@@ -2,7 +2,6 @@ package com.dmood.app.domain.usecase
 
 import com.dmood.app.domain.model.CategoryType
 import com.dmood.app.domain.model.Decision
-import com.dmood.app.domain.model.DecisionTone
 import com.dmood.app.domain.model.EmotionType
 import java.time.Instant
 import java.time.LocalDate
@@ -37,7 +36,6 @@ class GenerateInsightRulesUseCase(
         val results = mutableListOf<InsightRuleResult>()
 
         applyGlobalEmotionRules(ctx, results)
-        applyToneRules(ctx, results)
         applyGlobalIntensityRules(ctx, results)
         applyEmotionDiversityRules(ctx, results)
         applyCategoryFocusRules(ctx, results)
@@ -55,7 +53,6 @@ class GenerateInsightRulesUseCase(
         val decisions: List<Decision>,
         val total: Int,
         val emotionCounts: Map<EmotionType, Int>,
-        val toneCounts: Map<DecisionTone, Int>,
         val decisionsByCategory: Map<CategoryType, List<Decision>>,
         val decisionsByDay: Map<LocalDate, List<Decision>>,
         val firstTimestamp: Long,
@@ -70,10 +67,6 @@ class GenerateInsightRulesUseCase(
         val emotionCounts = decisions
             .flatMap { it.emotions }
             .groupingBy { it }
-            .eachCount()
-
-        val toneCounts = decisions
-            .groupingBy { it.tone }
             .eachCount()
 
         val decisionsByCategory = decisions.groupBy { it.category }
@@ -94,7 +87,6 @@ class GenerateInsightRulesUseCase(
             decisions = decisions,
             total = total,
             emotionCounts = emotionCounts,
-            toneCounts = toneCounts,
             decisionsByCategory = decisionsByCategory,
             decisionsByDay = decisionsByDay,
             firstTimestamp = firstTs,
@@ -121,39 +113,6 @@ class GenerateInsightRulesUseCase(
                 tag = "Emoción dominante"
             )
         }
-    }
-
-    // ---------- TONO GLOBAL (SIN JUICIO, SOLO DATO) ----------
-
-    private fun applyToneRules(ctx: RuleContext, out: MutableList<InsightRuleResult>) {
-        val total = ctx.total.toFloat()
-        if (total == 0f) return
-
-        val impulsiveRatio = (ctx.toneCounts[DecisionTone.IMPULSIVA] ?: 0) / total
-        val calmRatio = (ctx.toneCounts[DecisionTone.CALMADA] ?: 0) / total
-        val neutralRatio = (ctx.toneCounts[DecisionTone.NEUTRA] ?: 0) / total
-
-        val maxRatio = listOf(
-            DecisionTone.IMPULSIVA to impulsiveRatio,
-            DecisionTone.CALMADA to calmRatio,
-            DecisionTone.NEUTRA to neutralRatio
-        ).maxByOrNull { it.second } ?: return
-
-        val (dominantTone, ratio) = maxRatio
-        if (ratio < 0.5f) return
-
-        val toneLabel = when (dominantTone) {
-            DecisionTone.IMPULSIVA -> "impulsivo"
-            DecisionTone.CALMADA -> "calmado"
-            DecisionTone.NEUTRA -> "neutral"
-        }
-
-        out += InsightRuleResult(
-            title = "Tono predominante: $toneLabel",
-            description = "Alrededor de ${ratio.toPercentage()} de tus decisiones se registran con un tono $toneLabel. " +
-                    "Es la forma más habitual en la que has tomado decisiones esta semana.",
-            tag = "Tono"
-        )
     }
 
     // ---------- INTENSIDAD GLOBAL ----------

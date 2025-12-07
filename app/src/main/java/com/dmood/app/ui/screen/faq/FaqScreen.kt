@@ -29,11 +29,11 @@ private data class FaqEntry(val title: String, val body: String)
 private val faqEntries = listOf(
     FaqEntry(
         title = "Qué registrar en \"Hoy\"",
-        body = "Cada decisión guarda un texto breve, hasta dos emociones (Normal es exclusiva), la intensidad que sentiste y la categoría de tu vida donde encaja. Así el tono y el resumen semanal se calculan con más contexto."
+        body = "Cada decisión guarda un texto breve, hasta dos emociones (Normal es exclusiva), la intensidad que sentiste y la categoría de tu vida donde encaja. Así el resumen semanal se nutre de contexto real."
     ),
     FaqEntry(
-        title = "Cómo se calcula el tono",
-        body = "D-Mood cruza las emociones seleccionadas y la intensidad para clasificar cada decisión como calmada o impulsiva. No se edita a mano, pero puedes ajustar emociones o intensidad si quieres recalcular."
+        title = "Cómo usar las emociones",
+        body = "Elige hasta dos emociones y marca su intensidad. Te servirán para recordar el momento y para detectar patrones de energía a lo largo de la semana."
     ),
     FaqEntry(
         title = "Categorías y filtros",
@@ -45,7 +45,7 @@ private val faqEntries = listOf(
     ),
     FaqEntry(
         title = "Cuándo se genera el resumen semanal",
-        body = "El corte se basa en tu día de inicio de semana (Ajustes). Tras los primeros 3 días de uso, cada semana se abre un nuevo resumen con categorías, emociones destacadas y la proporción calmadas/impulsivas."
+        body = "El corte se basa en tu día de inicio de semana (Ajustes). Tras los primeros 3 días de uso, cada semana se abre un nuevo resumen con categorías, emociones destacadas y evolución por días."
     )
 )
 

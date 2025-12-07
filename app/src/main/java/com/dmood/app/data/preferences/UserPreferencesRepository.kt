@@ -63,7 +63,7 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     val dailyReminderEnabledFlow: Flow<Boolean> = dataStore.data.map { prefs ->
-        prefs[DAILY_REMINDER_ENABLED_KEY] ?: true
+        prefs[DAILY_REMINDER_ENABLED_KEY] ?: false
     }
 
     val weeklyReminderEnabledFlow: Flow<Boolean> = dataStore.data.map { prefs ->
