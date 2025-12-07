@@ -22,6 +22,17 @@ android {
     }
 
     buildTypes {
+
+        getByName("debug") {
+            // App de debug será OTRA app: com.dmood.app.demo
+            applicationIdSuffix = ".demo"
+            // Versión visible solo para debug
+            versionNameSuffix = "-demoV1"
+
+            // Opcional, pero recomendable en debug
+            isDebuggable = true
+        }
+
         release {
             isMinifyEnabled = false
             proguardFiles(
