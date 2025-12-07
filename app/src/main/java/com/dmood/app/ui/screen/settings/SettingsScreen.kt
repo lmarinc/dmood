@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
@@ -33,6 +34,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -61,7 +63,22 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
     val context = LocalContext.current
+    var pendingWeekStart by remember { mutableStateOf<DayOfWeek?>(null) }
     var pendingReminderAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is SettingsEvent.ShowToast -> {
+                    android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_LONG).show()
+                }
+
+                is SettingsEvent.ConfirmWeekStartChange -> {
+                    pendingWeekStart = event.dayOfWeek
+                }
+            }
+        }
+    }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -191,7 +208,7 @@ fun SettingsScreen(
                         DayOfWeek.values().forEach { day ->
                             val selected = uiState.weekStartDay == day
                             AssistChip(
-                                onClick = { viewModel.onWeekStartChange(day) },
+                                onClick = { viewModel.onWeekStartClick(day) },
                                 label = {
                                     Text(
                                         day.getDisplayName(TextStyle.SHORT, Locale("es", "ES")),
@@ -244,6 +261,38 @@ fun SettingsScreen(
             // Espacio extra al final para que las últimas tarjetas no queden “pegadas” al borde inferior
             Spacer(modifier = Modifier.height(16.dp))
         }
+    }
+
+    pendingWeekStart?.let { day ->
+        val formattedDay = remember(day) {
+            val raw = day.getDisplayName(TextStyle.FULL, Locale("es", "ES"))
+            raw.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale("es", "ES")) else it.toString() }
+        }
+
+        AlertDialog(
+            onDismissRequest = { pendingWeekStart = null },
+            title = { Text("Cambiar inicio de semana") },
+            text = {
+                Text(
+                    "El resumen semanal se recalculará usando $formattedDay. Solo puedes modificar este día una vez al mes. ¿Quieres continuar?"
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingWeekStart = null
+                        viewModel.confirmWeekStartChange(day)
+                    }
+                ) {
+                    Text("Confirmar cambio")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingWeekStart = null }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 }
 

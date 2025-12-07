@@ -27,6 +27,7 @@ class UserPreferencesRepository(private val context: Context) {
         private val USER_NAME_KEY = stringPreferencesKey("user_name")
         private val CARD_LAYOUT_KEY = stringPreferencesKey("card_layout_mode")
         private val WEEK_START_DAY_KEY = stringPreferencesKey("week_start_day")
+        private val WEEK_START_LAST_CHANGE_KEY = longPreferencesKey("week_start_last_change")
         private val FIRST_USE_DATE_KEY = longPreferencesKey("first_use_date")
         private val DAILY_REMINDER_ENABLED_KEY = booleanPreferencesKey("daily_reminder_enabled")
         private val WEEKLY_REMINDER_ENABLED_KEY = booleanPreferencesKey("weekly_reminder_enabled")
@@ -51,6 +52,10 @@ class UserPreferencesRepository(private val context: Context) {
         val stored = prefs[WEEK_START_DAY_KEY]
         stored?.let { runCatching { DayOfWeek.valueOf(it) }.getOrNull() }
             ?: DayOfWeek.valueOf(DEFAULT_WEEK_START)
+    }
+
+    val weekStartLastChangeFlow: Flow<Long?> = dataStore.data.map { prefs ->
+        prefs[WEEK_START_LAST_CHANGE_KEY]
     }
 
     val firstUseDateFlow: Flow<Long?> = dataStore.data.map { prefs ->
@@ -120,6 +125,47 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
 
+    suspend fun updateWeekStartDay(
+        dayOfWeek: DayOfWeek,
+        now: LocalDate = LocalDate.now(),
+        enforceMonthlyLimit: Boolean = false,
+        zoneId: ZoneId = ZoneId.systemDefault()
+    ): WeekStartChangeResult {
+        val lastChangeMillis = weekStartLastChangeFlow.first()
+        val lastChangeDate = lastChangeMillis?.let { millis ->
+            Instant.ofEpochMilli(millis).atZone(zoneId).toLocalDate()
+        }
+
+        val currentDay = weekStartDayFlow.first()
+        if (currentDay == dayOfWeek && lastChangeDate != null) {
+            return WeekStartChangeResult.Unchanged
+        }
+
+        if (currentDay == dayOfWeek && lastChangeDate == null) {
+            dataStore.edit { prefs ->
+                prefs[WEEK_START_LAST_CHANGE_KEY] = now.atStartOfDay(zoneId).toInstant().toEpochMilli()
+            }
+            val nextAllowedDate = now.plusDays(30)
+            return WeekStartChangeResult.Updated(dayOfWeek, nextAllowedDate)
+        }
+
+        if (enforceMonthlyLimit && lastChangeDate != null) {
+            val daysSinceChange = java.time.temporal.ChronoUnit.DAYS.between(lastChangeDate, now)
+            if (daysSinceChange < 30) {
+                val nextAllowedDate = lastChangeDate.plusDays(30)
+                return WeekStartChangeResult.TooSoon(nextAllowedDate)
+            }
+        }
+
+        dataStore.edit { prefs ->
+            prefs[WEEK_START_DAY_KEY] = dayOfWeek.name
+            prefs[WEEK_START_LAST_CHANGE_KEY] = now.atStartOfDay(zoneId).toInstant().toEpochMilli()
+        }
+
+        val nextAllowedDate = now.plusDays(30)
+        return WeekStartChangeResult.Updated(dayOfWeek, nextAllowedDate)
+    }
+
     suspend fun ensureFirstUseDate(now: Long = System.currentTimeMillis()): Long {
         var stored = firstUseDateFlow.first()
         if (stored == null) {
@@ -144,4 +190,10 @@ class UserPreferencesRepository(private val context: Context) {
             millis?.let { Instant.ofEpochMilli(it).atZone(zoneId).toLocalDate() }
         }
     }
+}
+
+sealed class WeekStartChangeResult {
+    data class Updated(val weekStartDay: DayOfWeek, val nextAllowedChange: LocalDate) : WeekStartChangeResult()
+    data class TooSoon(val nextAllowedDate: LocalDate) : WeekStartChangeResult()
+    data object Unchanged : WeekStartChangeResult()
 }

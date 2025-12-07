@@ -3,9 +3,11 @@ package com.dmood.app.ui.screen.onboarding
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dmood.app.data.preferences.UserPreferencesRepository
+import com.dmood.app.data.preferences.WeekStartChangeResult
 import java.time.DayOfWeek
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class OnboardingUiState(
@@ -13,7 +15,8 @@ data class OnboardingUiState(
     val isSaving: Boolean = false,
     val errorMessage: String? = null,
     val completed: Boolean = false,
-    val weekStartDay: DayOfWeek = DayOfWeek.MONDAY
+    val weekStartDay: DayOfWeek = DayOfWeek.MONDAY,
+    val selectedWeekStartDay: DayOfWeek? = null
 )
 
 class OnboardingViewModel(
@@ -34,6 +37,15 @@ class OnboardingViewModel(
         )
     }
 
+    fun onWeekStartSelected(dayOfWeek: DayOfWeek) {
+        _uiState.update { current ->
+            current.copy(
+                selectedWeekStartDay = dayOfWeek,
+                errorMessage = null
+            )
+        }
+    }
+
     fun completeOnboarding() {
         val trimmedName = _uiState.value.name.trim()
         if (trimmedName.isEmpty()) {
@@ -43,10 +55,28 @@ class OnboardingViewModel(
             return
         }
 
+        val selectedWeekStart = _uiState.value.selectedWeekStartDay
+        if (selectedWeekStart == null) {
+            _uiState.update {
+                it.copy(errorMessage = "Elige el día en el que arranca tu semana")
+            }
+            return
+        }
+
         viewModelScope.launch {
             try {
                 _uiState.value = _uiState.value.copy(isSaving = true, errorMessage = null)
                 userPreferencesRepository.setUserName(trimmedName)
+                when (
+                    userPreferencesRepository.updateWeekStartDay(
+                        selectedWeekStart,
+                        enforceMonthlyLimit = false
+                    )
+                ) {
+                    is WeekStartChangeResult.Updated -> Unit
+                    WeekStartChangeResult.Unchanged -> Unit
+                    is WeekStartChangeResult.TooSoon -> Unit
+                }
                 userPreferencesRepository.setHasSeenOnboarding(true)
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
@@ -64,7 +94,12 @@ class OnboardingViewModel(
     private fun observeWeekStartDay() {
         viewModelScope.launch {
             userPreferencesRepository.weekStartDayFlow.collect { day ->
-                _uiState.value = _uiState.value.copy(weekStartDay = day)
+                _uiState.update { state ->
+                    state.copy(
+                        weekStartDay = day,
+                        selectedWeekStartDay = state.selectedWeekStartDay ?: day
+                    )
+                }
             }
         }
     }

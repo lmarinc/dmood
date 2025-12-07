@@ -4,17 +4,22 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -22,15 +27,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dmood.app.ui.DmoodViewModelFactory
+import java.time.DayOfWeek
 import java.time.format.TextStyle
 import java.util.Locale
 
@@ -43,6 +52,8 @@ fun OnboardingScreen(
     viewModel: OnboardingViewModel = viewModel(factory = DmoodViewModelFactory)
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var currentStep by rememberSaveable { mutableIntStateOf(0) }
+    val scrollState = rememberScrollState()
 
     LaunchedEffect(uiState.completed) {
         if (uiState.completed) {
@@ -51,25 +62,22 @@ fun OnboardingScreen(
     }
 
     Surface(modifier = modifier.fillMaxSize()) {
-        val weekStartName = uiState.weekStartDay.getDisplayName(TextStyle.FULL, Locale("es", "ES"))
-            .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale("es", "ES")) else it.toString() }
-
+        val selectedWeekStart = uiState.selectedWeekStartDay ?: uiState.weekStartDay
+        val locale = remember { Locale("es", "ES") }
+        val weekStartName = selectedWeekStart.getDisplayName(TextStyle.FULL, locale)
+            .replaceFirstChar { if (it.isLowerCase()) it.titlecase(locale) else it.toString() }
         val introSteps = listOf(
             IntroStep(
-                title = "Registra decisiones en 'Hoy'",
-                description = "Anota qué decidiste y selecciona hasta dos emociones más la intensidad. Así calculamos si se siente calmada o impulsiva."
+                title = "Registra tu día a día",
+                description = "En 'Hoy' añades decisiones rápidas, eliges hasta dos emociones y su intensidad para detectar tono calmado o impulsivo."
             ),
             IntroStep(
                 title = "Organiza con categorías y filtros",
-                description = "Elige el área que mejor encaje (Trabajo/Estudios, Salud, Relaciones, Finanzas, Hábitos, Ocio, Casa u Otro). Luego filtra en la pantalla principal para verlas agrupadas."
+                description = "Agrupa por áreas como Trabajo, Salud o Relaciones y filtra en la pantalla principal para enfocarte en lo que importa."
             ),
             IntroStep(
-                title = "Tu semana empieza en $weekStartName",
-                description = "Usamos ese día para abrir cada resumen semanal. Puedes cambiarlo en Ajustes si prefieres otro inicio."
-            ),
-            IntroStep(
-                title = "Resumen tipo 'Wrapped'",
-                description = "Después de varios días con decisiones, verás porcentajes de tono, categorías más frecuentes y patrones detectados automáticamente."
+                title = "Lee tu resumen semanal",
+                description = "Según tus registros, verás porcentajes calmado/impulsivo, días con más energía y patrones destacados."
             )
         )
 
@@ -79,111 +87,203 @@ fun OnboardingScreen(
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-                            MaterialTheme.colorScheme.background
+                            MaterialTheme.colorScheme.background,
+                            MaterialTheme.colorScheme.surface
                         )
                     )
-                ),
-            contentAlignment = Alignment.Center
+                )
         ) {
-            LazyColumn(
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.surface,
-                        shape = RoundedCornerShape(32.dp)
-                    )
-                    .padding(vertical = 28.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .fillMaxSize()
+                    .padding(horizontal = 20.dp, vertical = 24.dp)
+                    .verticalScroll(scrollState),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                item {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(
-                            text = "Bienvenido a D-Mood",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            textAlign = TextAlign.Center
-                        )
-                        Text(
-                            text = "Micro diario para registrar decisiones con su tono emocional y ver patrones semanales.",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
-                        )
-                    }
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "¡Hola!",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Tu micro diario para entender decisiones y emociones.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
 
-                items(introSteps) { step ->
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                        shape = RoundedCornerShape(20.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = step.title,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                text = step.description,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                StepIndicator(totalSteps = introSteps.size + 1, currentStep = currentStep)
+
+                when (currentStep) {
+                    0 -> PersonalInfoStep(
+                        name = uiState.name,
+                        onNameChange = viewModel::onNameChange,
+                        selectedWeekStart = selectedWeekStart,
+                        onWeekStartSelected = viewModel::onWeekStartSelected,
+                        weekStartName = weekStartName,
+                        errorMessage = uiState.errorMessage
+                    )
+
+                    else -> GuideStepCard(step = introSteps[currentStep - 1])
                 }
 
-                item {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = uiState.name,
-                            onValueChange = viewModel::onNameChange,
-                            label = { Text("¿Cómo te llamas?") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        if (uiState.errorMessage != null) {
-                            Text(
-                                text = uiState.errorMessage ?: "",
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
+                if (currentStep > 0) {
+                    Text(
+                        text = "Tu semana empieza en $weekStartName. Puedes ajustarlo más adelante en Ajustes.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    if (currentStep > 0) {
+                        OutlinedButton(onClick = { currentStep -= 1 }) {
+                            Text("Anterior")
                         }
-                        Button(
-                            onClick = viewModel::completeOnboarding,
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = !uiState.isSaving
-                        ) {
-                            if (uiState.isSaving) {
-                                CircularProgressIndicator(
-                                    color = Color.White,
-                                    strokeWidth = 2.dp,
-                                    modifier = Modifier.padding(4.dp)
-                                )
+                    } else {
+                        Spacer(modifier = Modifier.height(0.dp))
+                    }
+
+                    val isLastStep = currentStep == introSteps.lastIndex + 1
+                    Button(
+                        onClick = {
+                            if (isLastStep) {
+                                viewModel.completeOnboarding()
                             } else {
-                                Text("Empezar")
+                                currentStep += 1
                             }
+                        },
+                        enabled = if (currentStep == 0) {
+                            uiState.name.isNotBlank() && uiState.selectedWeekStartDay != null && !uiState.isSaving
+                        } else !uiState.isSaving
+                    ) {
+                        if (uiState.isSaving && isLastStep) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.padding(4.dp)
+                            )
+                        } else {
+                            Text(if (isLastStep) "Empezar" else "Siguiente")
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun StepIndicator(totalSteps: Int, currentStep: Int) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        repeat(totalSteps) { index ->
+            val isActive = index == currentStep
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(if (isActive) 10.dp else 6.dp)
+                    .background(
+                        color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+            )
+        }
+    }
+}
+
+@Composable
+private fun PersonalInfoStep(
+    name: String,
+    onNameChange: (String) -> Unit,
+    selectedWeekStart: DayOfWeek,
+    onWeekStartSelected: (DayOfWeek) -> Unit,
+    weekStartName: String,
+    errorMessage: String?
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text(
+            text = "Configura tu espacio",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold
+        )
+        OutlinedTextField(
+            value = name,
+            onValueChange = onNameChange,
+            label = { Text("¿Cómo te llamas?") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = "¿En qué día arranca tu semana?",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                DayOfWeek.values().forEach { day ->
+                    val selected = selectedWeekStart == day
+                    AssistChip(
+                        onClick = { onWeekStartSelected(day) },
+                        label = {
+                            Text(
+                                day.getDisplayName(TextStyle.SHORT, Locale("es", "ES")),
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+                            )
+                        },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                            labelColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                        )
+                    )
+                }
+            }
+            Text(
+                text = "Usaremos $weekStartName para abrir tus resúmenes. Cambiarlo recalculará las semanas.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        if (errorMessage != null) {
+            Text(
+                text = errorMessage,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
+}
+
+@Composable
+private fun GuideStepCard(step: IntroStep) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = step.title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = step.description,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
