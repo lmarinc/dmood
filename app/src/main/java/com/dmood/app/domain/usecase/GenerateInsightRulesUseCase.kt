@@ -2,6 +2,7 @@ package com.dmood.app.domain.usecase
 
 import com.dmood.app.domain.model.CategoryType
 import com.dmood.app.domain.model.Decision
+import com.dmood.app.domain.model.DecisionTone
 import com.dmood.app.domain.model.EmotionType
 import java.time.Instant
 import java.time.LocalDate
@@ -36,6 +37,7 @@ class GenerateInsightRulesUseCase(
         val results = mutableListOf<InsightRuleResult>()
 
         applyGlobalEmotionRules(ctx, results)
+        applyToneRules(ctx, results)
         applyGlobalIntensityRules(ctx, results)
         applyEmotionDiversityRules(ctx, results)
         applyCategoryFocusRules(ctx, results)
@@ -53,6 +55,7 @@ class GenerateInsightRulesUseCase(
         val decisions: List<Decision>,
         val total: Int,
         val emotionCounts: Map<EmotionType, Int>,
+        val toneCounts: Map<DecisionTone, Int>,
         val decisionsByCategory: Map<CategoryType, List<Decision>>,
         val decisionsByDay: Map<LocalDate, List<Decision>>,
         val firstTimestamp: Long,
@@ -71,6 +74,8 @@ class GenerateInsightRulesUseCase(
 
         val decisionsByCategory = decisions.groupBy { it.category }
 
+        val toneCounts = decisions.groupingBy { it.tone }.eachCount()
+
         val decisionsByDay = decisions.groupBy { decision ->
             Instant.ofEpochMilli(decision.timestamp).atZone(zoneId).toLocalDate()
         }
@@ -87,6 +92,7 @@ class GenerateInsightRulesUseCase(
             decisions = decisions,
             total = total,
             emotionCounts = emotionCounts,
+            toneCounts = toneCounts,
             decisionsByCategory = decisionsByCategory,
             decisionsByDay = decisionsByDay,
             firstTimestamp = firstTs,
@@ -112,6 +118,49 @@ class GenerateInsightRulesUseCase(
                         "Es el estado emocional que más ha acompañado tus elecciones.",
                 tag = "Emoción dominante"
             )
+        }
+    }
+
+    // ---------- TONO GLOBAL ----------
+
+    private fun applyToneRules(ctx: RuleContext, out: MutableList<InsightRuleResult>) {
+        if (ctx.total < 4) return
+
+        val calmCount = ctx.toneCounts[DecisionTone.CALMADA] ?: 0
+        val impulsiveCount = ctx.toneCounts[DecisionTone.IMPULSIVA] ?: 0
+        val neutralCount = ctx.toneCounts[DecisionTone.NEUTRA] ?: 0
+
+        val calmRatio = calmCount.toFloat() / ctx.total.toFloat()
+        val impulsiveRatio = impulsiveCount.toFloat() / ctx.total.toFloat()
+        val neutralRatio = neutralCount.toFloat() / ctx.total.toFloat()
+
+        when {
+            calmRatio >= 0.55f -> {
+                out += InsightRuleResult(
+                    title = "Semana de decisiones calmadas",
+                    description = "Predominan las decisiones con tono calmado (aprox. ${calmRatio.toPercentage()}). " +
+                            "Has tomado elecciones con sensación de calma y mayor sensación de control.",
+                    tag = "Tono"
+                )
+            }
+
+            impulsiveRatio >= 0.45f && impulsiveCount >= calmCount -> {
+                out += InsightRuleResult(
+                    title = "Semana con más impulsos",
+                    description = "Las decisiones con tono impulsivo son frecuentes (aprox. ${impulsiveRatio.toPercentage()}). " +
+                            "Hay más acción rápida o emociones intensas detrás de tus elecciones.",
+                    tag = "Tono"
+                )
+            }
+
+            neutralRatio >= 0.5f -> {
+                out += InsightRuleResult(
+                    title = "Tono neutro la mayoría del tiempo",
+                    description = "La mitad de las decisiones o más se perciben neutrales (aprox. ${neutralRatio.toPercentage()}). " +
+                            "El tono emocional ha sido más estable y sin grandes picos.",
+                    tag = "Tono"
+                )
+            }
         }
     }
 

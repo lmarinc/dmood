@@ -97,18 +97,18 @@ fun OnboardingScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 20.dp)
-                    .padding(top = 32.dp, bottom = 40.dp)
+                    .padding(top = 48.dp, bottom = 56.dp)
                     .verticalScroll(scrollState),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
+                verticalArrangement = Arrangement.spacedBy(28.dp)
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
-                        text = "¡Hola!",
+                        text = "Bienvenido a Dmood",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "Tu micro diario para entender decisiones y emociones.",
+                        text = "Un micro diario para reconocer tus decisiones y el tono emocional que las acompaña.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
